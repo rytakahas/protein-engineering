@@ -1,0 +1,96 @@
+# Res-Contact — Time Breakdown Roadmap
+
+## Objective (by next Monday)
+Deliver a working end-to-end pipeline (CLI + FastAPI), plus a short notebook for monitoring,
+that (1) ingests PDB/mmCIF, (2) builds residue-pair features using ESM2 (± remote-MSA PSSM),
+(3) trains an MLP contact scorer, and (4) reports PR-AUC/ROC-AUC/Precision@k.
+
+---
+
+## Sections & Hours
+- Design & notebook prototype (end-to-end skeleton): 8 h
+- Data ingestion & parsing (SEQRES/ATOM alignment): 4 h
+- Embedding & feature engineering (ESM2 + optional PSSM, pairwise feats): 6 h
+- Model training & tuning (baseline → +MSA ablation): 8 h
+- Evaluation & plots (metrics notebook + charts): 6 h
+- Reporting & packaging (README, API how-to, CLI usage): 6 h
+**Total:** 38 h (~5 workdays)
+
+---
+
+## Method (what we do + how it extends ESM2)
+- **Backbone embeddings:** Per-residue hidden states from **ESM2** (default: `facebook/esm2_t6_8M_UR50D`; can swap to `t12_35M`).
+- **Extension beyond ESM2:** We **augment** ESM2 with **PSSM** features from an **online MSA** (no local DB):
+  - EBI **Jackhmmer** or NCBI **BLAST** (via Biopython) → gapped alignments → **PSSM [L×20]**.
+  - Concatenate per-residue `[ESM2_i, ESM2_j, |Δ|, ⊙, PSSM_i, PSSM_j]` into pairwise features.
+- **Contact head:** Lightweight **Pair-MLP** on pairwise features → contact logits for each (i,j).
+- **Labels:** Ground truth from **Cα–Cα < 8.0 Å**, intra-chain by default (block-diagonal). Inter-chain is a toggle if needed.
+
+---
+
+## Data pre-processing
+1. **Parse structure:** PDB/mmCIF → chains, sequences (PPBuilder), Cα coordinates.
+2. **Seq↔coord alignment:** Map each residue index to its Cα (skip missing Cα; mark invalid pairs).
+3. **Contact labels:** Boolean `contact[i,j] = dist(Cα_i, Cα_j) < 8.0 Å`. Build a valid-pair mask.
+4. **Embeddings:** Tokenize sequences; run ESM2; strip specials; get `[L, d]`.
+5. **Optional MSA → PSSM:** Call Jackhmmer/BLAST remotely, keep gaps, pad to L; compute frequency matrix `[L,20]`.
+6. **Pair features:** For sampled valid pairs, concatenate `[hi, hj, |hi-hj|, hi*hj, pssm_i, pssm_j]`.
+
+*(If you “have 60 sequences”: that yields 60 contact maps. For quick iterations, cap to ~15k sampled train pairs/epoch and ~500 sampled pairs for smoke tests; full runs can use all valid pairs.)*
+
+---
+
+## Post-processing & evaluation
+- Convert logits → probs (sigmoid). Report:
+  - **PR-AUC**, **ROC-AUC**, **Precision@L / @L/2 / @L/5**, and **long-range** (|i−j| ≥ 6) variants.
+- Store metrics to `artifacts/metrics.jsonl` (one line per epoch + final test summary).
+- Notebook `notebooks/monitor_metrics.ipynb` plots validation PR-AUC over epochs and shows test metrics.
+
+---
+
+## Hyperparameters & training setup
+- **ESM2 variant:** `facebook/esm2_t6_8M_UR50D` (swap to `t12_35M` if GPU allows).
+- **Feature dim:** `4*d_esm + 2*20` (for ESM2 + PSSM_i/j).
+- **Model:** Pair-MLP( d_in → 256 → 1 ), ReLU + Dropout(0.1).
+- **Loss:** `BCEWithLogitsLoss()` on sampled pair labels.
+- **Optimizer:** AdamW(lr=1e-3), weight_decay default.
+- **Sampling:** up to **200k** valid pairs/epoch (debug: 15k).
+- **Batching:** feed **100k** pair features per step (tune by memory).
+- **Epochs:** 3 (prototype); increase to 10+ for full runs.
+- **Seed:** 42.
+- **Cutoff:** 8.0 Å (Cα).
+
+---
+
+## Deliverables
+- **CLI scripts:** `scripts/train.py`, `scripts/eval.py` (already provided).
+- **FastAPI service:** `src/rescontact/api/app.py` with `/train` endpoint to run full pipeline (±MSA).
+- **Artifacts:** `artifacts/rescontact_best.pt`, `artifacts/metrics.jsonl`.
+- **Notebook:** `notebooks/monitor_metrics.ipynb` (visualize PR-AUC & test metrics).
+- **README/API notes:** quickstart, env, endpoints, and ablation instructions.
+
+---
+
+## Timeline (targeting delivery by Monday)
+- **Day 1 — Notebook prototype (8 h):** wire full e2e on a tiny subset; confirm metrics logging & plots.
+- **Day 2 — Data & features (6–8 h):** finalize parsing/alignment (4 h) + pair-feature/PSM wiring (2–4 h).
+- **Day 3 — Train & tune (8 h):** baseline (ESM2-only), then +MSA ablation; pick best by val PR-AUC.
+- **Day 4 — Eval & packaging (6–8 h):** finalize charts, clean metrics notebook, add README/API how-to.
+- **Day 5 — Buffer & polish (4–6 h):** reruns if needed, inter-chain toggle, small refactors.
+
+---
+
+## Notes & Decisions
+- Cα cutoff (Å): **8.0**
+- ESM2 model: **t6_8M** (default) / **t12_35M** (if resources allow)
+- Device: **MPS / CPU** fallback supported
+- Loss: **BCEWithLogits** on sampled pairs
+- Metrics: **PR-AUC, ROC-AUC, Precision@L/L2/L5; long-range (|i−j|≥6) and intra vs inter**
+
+---
+
+## Follow-ups (post-delivery)
+- Retrieval/template features from training DB (avoid test leakage).
+- Inter-chain head and cross-chain evaluation suite.
+- Long-range-only ablations; compare with symmetric Transformers on (L×L) maps.
+
