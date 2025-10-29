@@ -1,14 +1,16 @@
-Res-Contact
+### Res-Contact
 ===========
 
-Lightweight, end-to-end pipeline for protein contact map prediction on an 8 GB MacBook Air M3.
+End-to-end pipeline for protein contact map prediction.
+
 It builds 8 Å ground-truth (Cβ; Gly→Cα) from PDB/mmCIF, embeds sequences with tiny ESM2, trains a bilinear distance-biased model, and serves predictions via FastAPI.
+
 MSA is optional with graceful fallbacks: local → jackhmmer → blastp → skip.
 
 --------------------------------------------------------------------
 1) Repo layout
 --------------------------------------------------------------------
-
+```
 .
 ├─ configs/
 │  └─ rescontact.yaml          # all config (paths, model, training, api, msa)
@@ -43,40 +45,51 @@ MSA is optional with graceful fallbacks: local → jackhmmer → blastp → skip
 │  └─ test_train_smoke.py
 ├─ requirements.txt
 └─ roadmap.txt
+```
 
 Data folders (you create them)
 ------------------------------
 
+```
 data/
 ├─ pdb/
 │  ├─ train/   # *.pdb or *.cif or *.mmCIF
 │  └─ test/    # *.pdb or *.cif or *.mmCIF
 └─ msa/
    └─ ...      # optional local *.a3m files (matched by glob in config)
+```
 
 Cache & outputs (auto-created)
 ------------------------------
 
+```
 .cache/rescontact/           # ESM NPZ cache (per sequence)
 .cache/rescontact/msatmp/    # temp FASTA when querying jackhmmer/blastp
 checkpoints/                 # saved model weights
 logs/                        # (placeholder)
 
+```
 --------------------------------------------------------------------
 2) Installation (Mac, Python 3.10–3.12)
 --------------------------------------------------------------------
 
 # from repo root
+```
 python -m venv .venv
 source .venv/bin/activate
 
+```
 # PyTorch first (CPU/MPS build; MPS is included in macOS wheels)
+```
 pip install --upgrade pip
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 
+```
 # Rest of deps (ESM, FastAPI, etc.)
+```
 pip install -r requirements.txt
 
+```
 Note (ESM): fair-esm pulls model weights at first use and embeddings are cached to disk to keep RAM low.
 
 --------------------------------------------------------------------
@@ -99,16 +112,20 @@ Edit configs/rescontact.yaml if needed:
 
 Place training structures under data/pdb/train/ and test structures under data/pdb/test/:
 
+```
 data/pdb/train/1abc_A.pdb
 data/pdb/train/2xyz.cif
 data/pdb/test/3def_A+B.cif
 
+```
 Ground truth is computed on the fly as 8 Å Cβ–Cβ (Gly→Cα) distance map (symmetric, diagonal zeros).
 Multimers: both intra-chain and (if enabled) inter-chain examples are handled (monomer/dimer/multimer).
 
 Optional local MSAs:
 
+```
 data/msa/myprotein_XXXX.a3m
+```
 
 v0.1 only detects MSA presence; integration into model features is planned for v0.2.
 
@@ -116,7 +133,9 @@ v0.1 only detects MSA presence; integration into model features is planned for v
 5) Train (0.8/0.2 split on train set)
 --------------------------------------------------------------------
 
+```
 python scripts/train.py --config configs/rescontact.yaml
+```
 
 - Uses tiny ESM2; embeddings cached under .cache/rescontact
 - Batch size = 1 to avoid L×L padding blow-ups (M3-friendly)
@@ -131,10 +150,12 @@ Sample log:
 6) Evaluate (on test set)
 --------------------------------------------------------------------
 
+```
 python scripts/eval.py \
   --config configs/rescontact.yaml \
   --ckpt checkpoints/model_best.pt \
   --split test
+```
 
 Outputs JSON with P@L, ROC-AUC, F1@threshold.
 
@@ -146,21 +167,27 @@ A) FastAPI server (recommended)
 
 Start server:
 
+```
 uvicorn rescontact.api.server:app --host 0.0.0.0 --port 8000
+```
 
 Predict from a raw sequence:
 
+```
 curl -s -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d '{"sequence":"ACDEFGHIKLMNPQRSTVWY"}' \
   | jq .
 
+```
 Predict from a PDB/mmCIF path (server derives sequence):
 
+```
 curl -s -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d '{"pdb_path":"data/pdb/test/3def_A+B.cif","threshold":0.5}' \
   | jq .
+```
 
 The response contains a base64-encoded NPZ with:
 - probs  : L×L probabilities
@@ -168,15 +195,18 @@ The response contains a base64-encoded NPZ with:
 
 Decode the NPZ (Python client):
 
+```
 import base64, io, numpy as np, requests
 r = requests.post("http://localhost:8000/predict", json={"sequence":"ACDEFGHIKLMNPQRSTVWY"})
 b = base64.b64decode(r.json()["npz_b64"])
 npz = np.load(io.BytesIO(b))
 probs, binary = npz["probs"], npz["binary"]
 print(probs.shape, binary.sum())
+```
 
 B) Direct Python (no server)
 
+```
 import torch, numpy as np
 from rescontact.features.embedding import ESMEmbedder
 from rescontact.models.contact_net import BilinearContactNet
@@ -193,6 +223,7 @@ with torch.no_grad():
     probs = torch.sigmoid(logits).numpy()
 binary = (probs >= 0.5).astype(np.uint8)
 print(probs.shape, binary.sum())
+```
 
 --------------------------------------------------------------------
 8) MSA (optional, safe fallbacks)
@@ -222,7 +253,9 @@ v0.1 only detects availability and stores the path.
 --------------------------------------------------------------------
 
 - Vim E212: Can't open file for writing: parent folder missing or not writable
+```
   mkdir -p src/rescontact/api && chmod u+w src/rescontact/api
+```
 
 - fair-esm import error: ensure pip install fair-esm (it’s in requirements.txt)
 - Slow first epoch: ESM embeddings are computed and cached; later epochs reuse cache
@@ -232,6 +265,7 @@ v0.1 only detects availability and stores the path.
 11) Config cheat-sheet
 --------------------------------------------------------------------
 
+```
 labels:
   contact_threshold_angstrom: 8.0
   include_inter_chain: true
@@ -255,28 +289,37 @@ api:
   host: 0.0.0.0
   port: 8000
 
+```
 --------------------------------------------------------------------
 12) Run end-to-end quickstart
 --------------------------------------------------------------------
 
 # 0) setup
+```
 python -m venv .venv && source .venv/bin/activate
 pip install --upgrade pip
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
+```
 
 # 1) put PDBs
+```
 mkdir -p data/pdb/train data/pdb/test
+```
 # copy your *.pdb / *.cif files accordingly
 
 # 2) train (splits 0.8/0.2 of train internally)
 python scripts/train.py --config configs/rescontact.yaml
 
 # 3) evaluate on test
+```
 python scripts/eval.py --config configs/rescontact.yaml --ckpt checkpoints/model_best.pt --split test
+```
 
 # 4A) serve API
+```
 uvicorn rescontact.api.server:app --host 0.0.0.0 --port 8000
+```
 # curl or Python client as shown above
 
 # 4B) OR: run direct Python for a sequence (no server)
