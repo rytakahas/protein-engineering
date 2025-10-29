@@ -294,7 +294,7 @@ api:
 12) Run end-to-end quickstart
 --------------------------------------------------------------------
 
-# 0) setup
+#### 0) setup
 ```
 python -m venv .venv && source .venv/bin/activate
 pip install --upgrade pip
@@ -302,25 +302,25 @@ pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 ```
 
-# 1) put PDBs
+#### 1) put PDBs
 ```
 mkdir -p data/pdb/train data/pdb/test
 ```
-# copy your *.pdb / *.cif files accordingly
+#### copy your *.pdb / *.cif files accordingly
 
-# 2) train (splits 0.8/0.2 of train internally)
+#### 2) train (splits 0.8/0.2 of train internally)
 python scripts/train.py --config configs/rescontact.yaml
 
-# 3) evaluate on test
+#### 3) evaluate on test
 ```
 python scripts/eval.py --config configs/rescontact.yaml --ckpt checkpoints/model_best.pt --split test
 ```
 
-# 4A) serve API
+#### 4A) serve API
 ```
 uvicorn rescontact.api.server:app --host 0.0.0.0 --port 8000
 ```
-# curl or Python client as shown above
+#### curl or Python client as shown above
 
-# 4B) OR: run direct Python for a sequence (no server)
-# (see snippet in §7B)
+#### 4B) OR: run direct Python for a sequence (no server)
+#### (see snippet in §7B)
