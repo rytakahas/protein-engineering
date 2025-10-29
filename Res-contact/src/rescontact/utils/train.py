@@ -1,23 +1,51 @@
-
-from typing import Optional, List, Dict
-import numpy as np
+import os
+import random
 import torch
+import numpy as np
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"))
 
-def sample_pairs(valid_mask: np.ndarray, max_pairs: Optional[int]) -> np.ndarray:
-    idx = np.argwhere(valid_mask)
-    if idx.size == 0:
-        return idx
-    if (max_pairs is not None) and (len(idx) > max_pairs):
-        sel = np.random.choice(len(idx), size=max_pairs, replace=False)
-        idx = idx[sel]
-    return idx
+def set_seed(seed: int = 42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
-def build_pair_batch(H: torch.Tensor, pair_idx: np.ndarray) -> torch.Tensor:
-    if pair_idx.size == 0:
-        return torch.empty(0, device=DEVICE)
-    hi = H[pair_idx[:, 0]]
-    hj = H[pair_idx[:, 1]]
-    feats = torch.cat([hi, hj, torch.abs(hi - hj), hi * hj], dim=-1)
-    return feats
+
+def get_device(preference=("mps", "cpu")):
+    for dev in preference:
+        if dev == "cuda" and torch.cuda.is_available():
+            return torch.device("cuda")
+        if dev == "mps" and torch.backends.mps.is_available():
+            return torch.device("mps")
+        if dev == "cpu":
+            return torch.device("cpu")
+    return torch.device("cpu")
+
+
+def save_checkpoint(model: torch.nn.Module, path: str, cfg: dict):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    torch.save({"state_dict": model.state_dict(), "config": cfg}, path)
+
+
+def load_checkpoint(model: torch.nn.Module, path: str, device: torch.device):
+    ckpt = torch.load(path, map_location=device)
+    model.load_state_dict(ckpt["state_dict"])
+    return ckpt.get("config", {})
+
+
+class EarlyStopper:
+    def __init__(self, patience=5, min_delta=0.0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.best = float("inf")
+        self.wait = 0
+
+    def step(self, val):
+        if val < self.best - self.min_delta:
+            self.best = val
+            self.wait = 0
+            return False
+        self.wait += 1
+        return self.wait > self.patience
+
