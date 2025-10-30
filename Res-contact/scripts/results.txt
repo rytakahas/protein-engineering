@@ -1,0 +1,66 @@
+PYTHONPATH=src PYTHONUNBUFFERED=1 RESCONTACT_VERBOSE=1 \
+python -u scripts/train.py \
+  --config configs/rescontact.yaml \
+  --max_train_examples 1000 \
+  --subset_mode random \
+  --train_val_split 0.8 \
+  --epochs 20
+
+[rescontact] loading config from configs/rescontact.yaml
+[rescontact] torch=2.5.1  python=3.11.14
+[rescontact] Using device: cpu
+[rescontact/ds] enumerated 15000 examples under data/pdb/train
+[rescontact] dataset ready: total=1000  train=800  val=200
+[rescontact/ESM] init model_id=facebook/esm2_t6_8M_UR50D cache=.cache/rescontact/emb device=mps
+/opt/miniconda3/envs/.env_res_contact/lib/python3.11/site-packages/torchvision/io/image.py:14: UserWarning: Failed to load image Python extension: 'dlopen(/opt/miniconda3/envs/.env_res_contact/lib/python3.11/site-packages/torchvision/image.so, 0x0006): Library not loaded: @rpath/libjpeg.9.dylib
+  Referenced from: <EB3FF92A-5EB1-3EE8-AF8B-5923C1265422> /opt/miniconda3/envs/.env_res_contact/lib/python3.11/site-packages/torchvision/image.so
+  Reason: tried: '/opt/miniconda3/envs/.env_res_contact/lib/python3.11/site-packages/torchvision/../../../libjpeg.9.dylib' (no such file), '/opt/miniconda3/envs/.env_res_contact/lib/python3.11/site-packages/torchvision/../../../libjpeg.9.dylib' (no such file), '/opt/miniconda3/envs/.env_res_contact/lib/python3.11/lib-dynload/../../libjpeg.9.dylib' (no such file), '/opt/miniconda3/envs/.env_res_contact/bin/../lib/libjpeg.9.dylib' (no such file)'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+Some weights of EsmModel were not initialized from the model checkpoint at facebook/esm2_t6_8M_UR50D and are newly initialized: ['pooler.dense.bias', 'pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+[rescontact/ESM] init model_id=facebook/esm2_t6_8M_UR50D cache=.cache/rescontact/emb device=mps
+[rescontact] debug: first item ready
+[rescontact] model built (0.15M params) → start training
+[epoch 1] train=0.1770  val=0.1602  P@L=0.943  ROC=0.719  PR=0.356  F1=0.025  (278.4s)
+[epoch 2] train=0.1425  val=0.1455  P@L=0.903  ROC=0.817  PR=0.459  F1=0.074  (102.4s)
+[epoch 3] train=0.1270  val=0.1232  P@L=0.989  ROC=0.827  PR=0.522  F1=0.385  (107.5s)
+[epoch 4] train=0.1188  val=0.1192  P@L=0.998  ROC=0.836  PR=0.565  F1=0.388  (153.1s)
+[epoch 5] train=0.1149  val=0.1158  P@L=0.998  ROC=0.840  PR=0.576  F1=0.517  (89.6s)
+[epoch 6] train=0.1130  val=0.1134  P@L=0.998  ROC=0.843  PR=0.578  F1=0.533  (140.2s)
+[epoch 7] train=0.1119  val=0.1135  P@L=0.998  ROC=0.845  PR=0.579  F1=0.545  (112.1s)
+[epoch 8] train=0.1115  val=0.1125  P@L=0.998  ROC=0.847  PR=0.580  F1=0.533  (111.8s)
+[epoch 9] train=0.1113  val=0.1123  P@L=0.998  ROC=0.848  PR=0.580  F1=0.531  (98.6s)
+[epoch 10] train=0.1111  val=0.1123  P@L=0.998  ROC=0.847  PR=0.580  F1=0.536  (133.7s)
+[epoch 11] train=0.1110  val=0.1121  P@L=0.998  ROC=0.848  PR=0.581  F1=0.531  (111.4s)
+[epoch 12] train=0.1109  val=0.1121  P@L=0.998  ROC=0.849  PR=0.580  F1=0.533  (95.6s)
+[epoch 13] train=0.1108  val=0.1122  P@L=0.998  ROC=0.849  PR=0.580  F1=0.540  (115.2s)
+[epoch 14] train=0.1108  val=0.1121  P@L=0.998  ROC=0.850  PR=0.581  F1=0.537  (139.0s)
+[epoch 15] train=0.1107  val=0.1119  P@L=0.998  ROC=0.850  PR=0.581  F1=0.530  (135.9s)
+[epoch 16] train=0.1106  val=0.1119  P@L=0.998  ROC=0.850  PR=0.581  F1=0.534  (124.0s)
+[epoch 17] train=0.1106  val=0.1120  P@L=0.998  ROC=0.850  PR=0.580  F1=0.539  (110.9s)
+[epoch 18] train=0.1106  val=0.1117  P@L=0.998  ROC=0.851  PR=0.581  F1=0.529  (128.5s)
+[epoch 19] train=0.1105  val=0.1117  P@L=0.998  ROC=0.851  PR=0.581  F1=0.532  (107.5s)
+[epoch 20] train=0.1105  val=0.1120  P@L=0.998  ROC=0.850  PR=0.580  F1=0.536  (96.5s)
+(.env_res_contact) ryoji@Ryojis-MacBook-Air Res-contact % PYTHONPATH=src PYTHONUNBUFFERED=1 RESCONTACT_VERBOSE=1 \
+python -u scripts/eval.py \
+  --config configs/rescontact.yaml \
+  --ckpt checkpoints/model_best.pt \
+  --split test \
+  --max_test_examples 500 \
+  --subset_mode random
+
+[rescontact/eval] torch=2.5.1  python=3.11.14  device=cpu
+[rescontact/ds] enumerated 500 examples under data/pdb/test
+[rescontact/eval] evaluating split=test  size=500
+/Users/ryoji/Documents/Code/Python/Prot_Eng/Res-contact/scripts/eval.py:189: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  state = torch.load(ckpt_path, map_location=device)
+[rescontact/eval] loaded checkpoint: checkpoints/model_best.pt
+[rescontact/ESM] init model_id=facebook/esm2_t6_8M_UR50D cache=.cache/rescontact/emb device=mps
+/opt/miniconda3/envs/.env_res_contact/lib/python3.11/site-packages/torchvision/io/image.py:14: UserWarning: Failed to load image Python extension: 'dlopen(/opt/miniconda3/envs/.env_res_contact/lib/python3.11/site-packages/torchvision/image.so, 0x0006): Library not loaded: @rpath/libjpeg.9.dylib
+  Referenced from: <EB3FF92A-5EB1-3EE8-AF8B-5923C1265422> /opt/miniconda3/envs/.env_res_contact/lib/python3.11/site-packages/torchvision/image.so
+  Reason: tried: '/opt/miniconda3/envs/.env_res_contact/lib/python3.11/site-packages/torchvision/../../../libjpeg.9.dylib' (no such file), '/opt/miniconda3/envs/.env_res_contact/lib/python3.11/site-packages/torchvision/../../../libjpeg.9.dylib' (no such file), '/opt/miniconda3/envs/.env_res_contact/lib/python3.11/lib-dynload/../../libjpeg.9.dylib' (no such file), '/opt/miniconda3/envs/.env_res_contact/bin/../lib/libjpeg.9.dylib' (no such file)'If you don't plan on using image functionality from `torchvision.io`, you can ignore this warning. Otherwise, there might be something wrong with your environment. Did you have `libjpeg` or `libpng` installed before building `torchvision` from source?
+  warn(
+Some weights of EsmModel were not initialized from the model checkpoint at facebook/esm2_t6_8M_UR50D and are newly initialized: ['pooler.dense.bias', 'pooler.dense.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+[rescontact/eval] loss=0.1087  P@L=0.997  ROC=0.851  PR=0.579  F1=0.530
+
