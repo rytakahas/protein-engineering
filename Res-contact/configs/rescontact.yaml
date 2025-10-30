@@ -1,76 +1,74 @@
 # configs/rescontact.yaml
-# Minimal, M3-friendly defaults (ESM2 + optional MSA 1D). Safe on laptop.
+# Laptop-friendly defaults (ESM2 + optional MSA 1-D). Safe shapes guaranteed.
 
 project:
   seed: 42
-  device_preference: ["mps", "cpu"]   # try Apple MPS first, then CPU
+  device_preference: ["cpu"]   # try Apple MPS first, then CPU
+  # device_preference: ["mps", "cpu"]   # try Apple MPS first, then CPU
 
 paths:
   train_dir: "data/pdb/train"         # PDB/mmCIF files
   test_dir:  "data/pdb/test"
-  cache_dir: "./.cache/rescontact"    # embedding & MSA caches (npz/a3m/xml)
+  cache_dir: "./.cache/rescontact"    # embedding & MSA caches (npz/a3m/fasta/xml)
   ckpt_dir:  "./checkpoints"
   logs_dir:  "./logs"
 
 labels:
   contact_threshold_angstrom: 8.0     # Cβ–Cβ (Cα for Gly)
-  include_inter_chain: true           # include inter-chain contacts in labels
+  include_inter_chain: true           # include inter-chain labels
   symmetric: true                     # enforce Y = Y^T
 
 training:
   epochs: 20
-  batch_size: 1                       # keep memory low (variable L)
+  batch_size: 1
   lr: 1.5e-3
   weight_decay: 1.0e-4
   grad_clip: 1.0
   mixed_precision: true               # AMP only active on CUDA
   train_val_split: 0.8
   save_every: 1
-  patience: 5                         # early stopping
+  patience: 5
 
 model:
   esm_model: "facebook/esm2_t6_8M_UR50D"  # tiny ESM2
-  embed_dim: 341                     # 320 (ESM) + 21 (MSA 1-D zeros or real)
+  embed_dim: 320                     # 320 (ESM) + 21 (MSA; zero-padded if missing)
   hidden_dim: 256
-  distance_bias_max: 512             # number of |i-j| buckets
+  distance_bias_max: 512
 
 features:
-  # If true, dataset will always return [L, 320+21].
-  # When no alignment is available on time, it returns zeros for the 21 dims.
-  use_msa: true
-
+  # When true, dataset always returns [L, 341]. If no MSA, last 21 dims are zeros.
+  use_msa: false
   msa:
-    # Provider cascade: use local A3M first, then remote Jackhmmer (EBI),
-    # then remote BLASTP (NCBI). Any failure → zeros padding (safe).
-    # provider_order: ["local", "blastp", "jackhmmer_remote" ]
-    provider_order: ["blastp" ]
+    # Try local A3M first, then Jackhmmer (EMBL-EBI), then BLASTP (NCBI).
+    provider_order: ["blastp"]
+    #provider_order: ["local", "jackhmmer_remote", "blastp"]
 
     # 1) Local alignment files (optional)
-    local_glob: "data/msa/**/*.a3m"   # pick by sequence_id match if present
+    local_glob: "data/msa/**/*.a3m"
 
-    # 2) Remote Jackhmmer via EMBL-EBI HMMER REST (optional, safe timeouts)
+    # 2) Remote Jackhmmer via EMBL-EBI HMMER REST
     jackhmmer_remote:
       enabled: true
-      db: "uniprotrefprot"           # "uniprotrefprot" or "uniprotkb" (kb is bigger/slower)
-      email: null                    # optional; some APIs prefer an email for contact
-      timeout_s: 180                 # hard wall time for whole request+poll
-      poll_every_s: 5                # poll interval while waiting for job
-      max_seqs: 64                   # keep at most this many rows (incl. query)
-
-    # 3) Remote BLASTP via NCBI (optional, safe timeouts)
-    blastp:
-      enabled: true
-      db: "swissprot"                # "swissprot" (curated) or "nr" (large, slower)
-      hitlist_size: 50
-      expect: 1e-3
-      timeout_s: 120                 # coarse timeout
+      db: "uniprotrefprot"           # or "uniprotkb" (slower)
+      email: null                    # e.g., "you@example.com" (recommended)
+      timeout_s: 600                 # generous timeout for web queue
+      poll_every_s: 5
       max_seqs: 64
 
-    # Cap rows used from any provider (defensive; also used by dataset)
+    # 3) Remote BLASTP via NCBI (uses env NCBI_API_KEY if set)
+    blastp:
+      enabled: true
+      db: "swissprot"                # "swissprot" (curated) or "nr" (huge)
+      hitlist_size: 25
+      expect: "1e-3"
+      timeout_s: 120
+      max_seqs: 64
+
+    # Defensive cap on rows consumed by any provider
     max_seqs: 64
 
 inference:
-  threshold: 0.5                     # probability→binary for output contacts
+  threshold: 0.5
 
 api:
   framework: "fastapi"
@@ -78,9 +76,9 @@ api:
   port: 8000
 
 limits:
-  train_max_examples: 2              # tiny subset for quick laptop smoke tests
+  train_max_examples: 2
   test_max_examples: 1
-  subset_mode: "random"              # "random" (seeded) or "first"
+  subset_mode: "random"
 
 streaming:
   enabled: false

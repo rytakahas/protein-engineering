@@ -1,0 +1,17 @@
+### `requirements.txt`
+```txt
+torch>=2.2.0
+fair-esm>=2.0.0
+biopython>=1.83
+numpy>=1.26
+scipy>=1.11
+pyyaml>=6.0
+fastapi>=0.111
+uvicorn>=0.29
+tqdm>=4.66
+scikit-learn>=1.4
+regex>=2023.12
+transformers>=4.44
+tokenizers>=0.19
+pandas>=2.2
+requests>=2.32
