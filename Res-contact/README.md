@@ -491,12 +491,15 @@ curl -s http://localhost:8000/metrics
 curl -s -X POST http://localhost:8000/admin/reset_psis
 ```
 14) Production notes
-Online inference: serve ESM-only; use MSA only if precomputed features exist
 
-Batch pipelines: run Jackhmmer/BLAST locally and persist A3M/feature NPZs
+- Online inference: serve ESM-only; use MSA only if precomputed features exist
 
-Model zoo: keep both checkpoints/model_esm.pt and checkpoints/model_msa.pt
+- Batch pipelines: run Jackhmmer/BLAST locally and persist A3M/feature NPZs
 
-Cache hygiene: maintain separate caches .cache/rescontact_esm/ vs .cache/rescontact_msa/; add LRU/TTL cleanup
+- Model zoo: keep both checkpoints/model_esm.pt and checkpoints/model_msa.pt
 
-Observability: scrape /metrics with Prometheus; alert on PSI category or value
+- Cache hygiene: maintain separate caches .cache/rescontact_esm/ vs .cache/rescontact_msa/; add LRU/TTL cleanup
+
+- Observability: scrape /metrics with Prometheus; alert on PSI category or value
+
+- **Extensibility:** Containerize with Docker (expose :8000) and deploy to **Cloud Run** (or Vertex AI/SageMaker/Azure ML/Kubernetes).
