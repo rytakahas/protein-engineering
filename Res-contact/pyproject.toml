@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rescontact"
+version = "0.1.0"
+description = "Protein contact map pipeline (ESM + FastAPI) with lightweight monitoring"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Ryoji Takahashi" }]
+
+# Keep Torch out (platform-specific). Install Torch separately as you do now.
+dependencies = [
+  "fastapi>=0.111",
+  "uvicorn>=0.30",
+  "pydantic>=2.8",
+  "PyYAML>=6.0",
+  "numpy>=1.24",
+  "scikit-learn>=1.4",
+  "biopython>=1.83",
+  "matplotlib>=3.8",
+  "transformers>=4.40",   # if your ESMEmbedder uses HF
+  "regex>=2024.5.15",
+  "tqdm>=4.66",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["rescontact*"]
+
+# Include YAMLs or other static files under src/rescontact/**
+[tool.setuptools.package-data]
+"rescontact" = ["**/*.yaml", "**/*.yml"]
+
