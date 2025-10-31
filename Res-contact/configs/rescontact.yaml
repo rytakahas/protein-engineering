@@ -1,70 +1,82 @@
 # configs/rescontact.yaml
-# Laptop-friendly defaults (ESM2 + optional MSA 1-D). Safe shapes guaranteed.
+# Laptop-friendly defaults (ESM2 + optional 1-D MSA features). Safe shapes guaranteed.
 
 project:
   seed: 42
-  device_preference: ["cpu"]   # try Apple MPS first, then CPU
-  # device_preference: ["mps", "cpu"]   # try Apple MPS first, then CPU
+  # Prefer Apple MPS on Mac; fall back to CPU automatically.
+  device_preference: ["mps", "cpu"]
 
 paths:
-  train_dir: "data/pdb/train"         # PDB/mmCIF files
+  train_dir: "data/pdb/train"          # PDB/mmCIF files
   test_dir:  "data/pdb/test"
-  cache_dir: "./.cache/rescontact"    # embedding & MSA caches (npz/a3m/fasta/xml)
-  ckpt_dir:  "./checkpoints"
+  cache_dir: "./.cache/rescontact"     # ESM & MSA caches (npz/a3m/fasta/xml)
+  ckpt_dir:  "./checkpoints"           # model checkpoints
   logs_dir:  "./logs"
 
 labels:
-  contact_threshold_angstrom: 8.0     # Cβ–Cβ (Cα for Gly)
-  include_inter_chain: true           # include inter-chain labels
-  symmetric: true                     # enforce Y = Y^T
+  # Contacts are Cβ–Cβ (Gly → Cα) within threshold; symmetric label map.
+  contact_threshold_angstrom: 8.0
+  include_inter_chain: true
+  symmetric: true
 
 training:
+  # Keep batch_size=1 (LxL memory scales fast); great for M3 8GB.
   epochs: 20
   batch_size: 1
   lr: 1.5e-3
   weight_decay: 1.0e-4
   grad_clip: 1.0
-  mixed_precision: true               # AMP only active on CUDA
+  mixed_precision: true               # Only active on CUDA; safe on MPS/CPU
   train_val_split: 0.8
   save_every: 1
   patience: 5
 
 model:
-  esm_model: "facebook/esm2_t6_8M_UR50D"  # tiny ESM2
-  embed_dim: 320                     # 320 (ESM) + 21 (MSA; zero-padded if missing)
+  esm_model: "facebook/esm2_t6_8M_UR50D"   # tiny ESM2 (fits on M3)
+  # ── embed_dim notes ──────────────────────────────────────────────────────
+  # If features.use_msa: true  → dataset returns [L,341] (ESM320 + MSA21 or zeros)
+  # If features.use_msa: false → dataset returns [L,320]
+  # The trainer auto-aligns shapes, so either value works; pick 320 for no-MSA
+  # to keep the model smaller, or 341 to always allow MSA later.
+  embed_dim: 320
   hidden_dim: 256
   distance_bias_max: 512
+  dropout_p: 0.1
 
 features:
-  # When true, dataset always returns [L, 341]. If no MSA, last 21 dims are zeros.
+  # When true, dataset *always* returns [L,341]. If no MSA available, last 21 dims are zeros.
+  # When false, dataset returns [L,320] (pure ESM). Toggle here or via CLI --msa / --no_msa.
   use_msa: false
-  msa:
-    # Try local A3M first, then Jackhmmer (EMBL-EBI), then BLASTP (NCBI).
-    provider_order: ["blastp"]
-    #provider_order: ["local", "jackhmmer_remote", "blastp"]
 
-    # 1) Local alignment files (optional)
+  msa:
+    # Provider order is tried left→right. Local is fastest/reliable if you have A3M files.
+    # Jackhmmer (EMBL-EBI) and BLASTP (NCBI) are remote and may queue/rate-limit.
+    # provider_order: ["local", "jackhmmer_remote", "blastp"]
+    provider_order: ["blastp"]
+
+    # 1) Local A3M files (optional): precomputed MSAs live under data/msa/
     local_glob: "data/msa/**/*.a3m"
 
-    # 2) Remote Jackhmmer via EMBL-EBI HMMER REST
+    # 2) Remote Jackhmmer (EMBL-EBI HMMER REST)
     jackhmmer_remote:
       enabled: true
-      db: "uniprotrefprot"           # or "uniprotkb" (slower)
-      email: null                    # e.g., "you@example.com" (recommended)
-      timeout_s: 600                 # generous timeout for web queue
+      db: "uniprotrefprot"          # or "uniprotkb" (broader but slower)
+      email: you@example.com        # recommended; improves queue reliability
+      timeout_s: 600                # generous because of web queue
       poll_every_s: 5
       max_seqs: 64
 
-    # 3) Remote BLASTP via NCBI (uses env NCBI_API_KEY if set)
+    # 3) Remote BLASTP (NCBI). Uses $NCBI_API_KEY if set for higher rate limits.
     blastp:
       enabled: true
-      db: "swissprot"                # "swissprot" (curated) or "nr" (huge)
-      hitlist_size: 25
-      expect: "1e-3"
-      timeout_s: 120
+      # "nr" = broadest coverage (slower); "swissprot" = curated (faster, lower recall).
+      db: "swissprot"
+      hitlist_size: 64
+      expect: "1e-2"
+      timeout_s: 600                # increase if your network is slow
       max_seqs: 64
 
-    # Defensive cap on rows consumed by any provider
+    # Safety cap across any provider
     max_seqs: 64
 
 inference:
@@ -74,11 +86,14 @@ api:
   framework: "fastapi"
   host: "0.0.0.0"
   port: 8000
+  # Optional visualization controls used by /visualize endpoint (if you added it)
+  max_plot_len: 1200
 
 limits:
-  train_max_examples: 2
-  test_max_examples: 1
-  subset_mode: "random"
+  # 0 or null = no cap. For quick smoke tests set small numbers (e.g., 10).
+  train_max_examples: 0
+  test_max_examples: 0
+  subset_mode: "random"             # "random" or "first"
 
 streaming:
   enabled: false
@@ -90,3 +105,24 @@ streaming:
   interchain_eval: true
   eval_max_pairs_per_struct: 80000
 
+# Monitoring config (if you wired PSI/KL endpoints in the API)
+monitoring:
+  enabled: true
+  drift_method: "psi"
+
+  # Binning & thresholds
+  psi_bins: 10          # number of histogram bins for PSI
+  psi_warn: 0.10        # < warn  → "stable"
+  psi_alert: 0.20       # [warn, alert) → "slight_shift"; ≥ alert → escalate
+
+  # Baseline file (relative to repo root)
+  baseline_path: "monitor/baseline.json"
+
+  # (optional, informational only)
+  features:
+    - name: "seq_len"
+      kind: "numeric"
+    - name: "aa_freq"        # aggregated 20-AA frequency vector
+      kind: "vector"
+    - name: "hydropathy"     # mean Kyte–Doolittle
+      kind: "numeric"

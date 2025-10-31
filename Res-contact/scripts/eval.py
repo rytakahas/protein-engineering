@@ -70,7 +70,10 @@ class SimpleContactNet(nn.Module):
 
 def _upper_flat(arr: torch.Tensor) -> torch.Tensor:
     L = arr.shape[-1]
-    iu = torch.triu_indices(L, L, offset=1, device=arr.device)
+    # MPS doesn't implement triu_indices → create on CPU, then move.
+    iu = torch.triu_indices(L, L, offset=1)  # CPU by default
+    if iu.device != arr.device:
+        iu = iu.to(arr.device)
     return arr[..., iu[0], iu[1]]
 
 @torch.no_grad()

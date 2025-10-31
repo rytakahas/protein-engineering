@@ -1,36 +1,56 @@
+# src/rescontact/utils/psi.py
 import numpy as np
+from typing import Tuple, Dict
 
-def _bin_edges_quantile(x, n_bins=10):
-    # quantile bins from baseline to ensure non-empty bins
-    qs = np.linspace(0, 1, n_bins+1)
-    edges = np.unique(np.quantile(x, qs))
-    if len(edges) < 3:
-        # fallback to min/median/max
-        edges = np.unique([x.min(), np.median(x), x.max()])
+EPS = 1e-12
+
+def quantile_bins(x: np.ndarray, k: int = 10) -> np.ndarray:
+    """Return (k) quantile-based bin edges (length k+1)."""
+    x = np.asarray(x).ravel()
+    x = x[np.isfinite(x)]
+    if x.size == 0:
+        return np.array([0.0, 1.0])
+    qs = np.linspace(0, 1, k + 1)
+    edges = np.quantile(x, qs)
+    # make edges strictly increasing (guard for ties)
+    edges = np.unique(edges)
+    if edges.size < 2:
+        edges = np.array([edges[0] - 1e-6, edges[0] + 1e-6])
     return edges
 
-def psi_from_arrays(baseline, current, n_bins=10, method="quantile", eps=1e-8):
-    baseline = np.asarray(baseline).astype(float)
-    current  = np.asarray(current).astype(float)
-    baseline = baseline[np.isfinite(baseline)]
-    current  = current[np.isfinite(current)]
-    if baseline.size == 0 or current.size == 0:
-        return np.nan
+def hist_proportions(x: np.ndarray, edges: np.ndarray) -> np.ndarray:
+    """Histogram proportions in given edges."""
+    x = np.asarray(x).ravel()
+    x = x[np.isfinite(x)]
+    if x.size == 0:
+        return np.full(len(edges) - 1, 1.0 / (len(edges) - 1))
+    h, _ = np.histogram(x, bins=edges)
+    p = h.astype(np.float64)
+    s = p.sum()
+    if s <= 0:
+        return np.full_like(p, 1.0 / len(p), dtype=np.float64)
+    return p / s
 
-    if method == "quantile":
-        edges = _bin_edges_quantile(baseline, n_bins)
-    else:
-        lo, hi = np.nanmin(baseline), np.nanmax(baseline)
-        edges = np.linspace(lo, hi, n_bins+1)
+def psi_from_props(p: np.ndarray, q: np.ndarray) -> float:
+    """
+    Population Stability Index between baseline p and current q.
+    PSI = sum((p - q) * ln(p/q))
+    """
+    p = np.asarray(p, dtype=np.float64)
+    q = np.asarray(q, dtype=np.float64)
+    p = np.clip(p, EPS, 1.0)  # avoid div-by-zero & log(0)
+    q = np.clip(q, EPS, 1.0)
+    return float(np.sum((p - q) * np.log(p / q)))
 
-    # clip to ensure within edges
-    be = np.histogram(np.clip(baseline, edges[0], edges[-1]), bins=edges)[0].astype(float)
-    ce = np.histogram(np.clip(current,  edges[0], edges[-1]), bins=edges)[0].astype(float)
-    be = be / max(be.sum(), eps)
-    ce = ce / max(ce.sum(), eps)
+def psi(x_base: np.ndarray, x_cur: np.ndarray, edges: np.ndarray) -> Tuple[float, np.ndarray, np.ndarray]:
+    p = hist_proportions(x_base, edges)
+    q = hist_proportions(x_cur, edges)
+    return psi_from_props(p, q), p, q
 
-    # avoid zeroes
-    be = np.clip(be, eps, 1)
-    ce = np.clip(ce, eps, 1)
-    return float(np.sum((ce - be) * np.log(ce / be)))
+def categorize_psi(val: float) -> str:
+    # common rules of thumb
+    if val < 0.1:   return "stable"
+    if val < 0.25:  return "slight_shift"
+    if val < 0.5:   return "moderate_shift"
+    return "major_shift"
 

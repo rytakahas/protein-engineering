@@ -73,16 +73,17 @@ def align_embed_dim(x: torch.Tensor, want: int) -> torch.Tensor:
 # Very small contact model
 # -----------------------
 class SimpleContactNet(nn.Module):
-    def __init__(self, embed_dim: int, hidden_dim: int, dist_bias_max: int = 512):
+    def __init__(self, embed_dim: int, hidden_dim: int, dist_bias_max: int = 512, dropout_p: float = 0.1):
         super().__init__()
         self.proj = nn.Linear(embed_dim, hidden_dim)
         self.act = nn.ReLU()
+        self.drop = nn.Dropout(dropout_p)  # <-- added dropout (default 0.1)
         self.bilin = nn.Linear(hidden_dim, hidden_dim, bias=False)
         self.dist_bias = nn.Embedding(dist_bias_max, 1)
 
     def forward(self, emb: torch.Tensor) -> torch.Tensor:
         # emb: [B, L, D]
-        z = self.act(self.proj(emb))  # [B,L,H]
+        z = self.drop(self.act(self.proj(emb)))  # [B,L,H] + dropout
         zW = self.bilin(z)
         logits = torch.einsum("blh,bmh->blm", zW, z) / math.sqrt(z.shape[-1])
         B, L, _ = logits.shape
@@ -105,8 +106,13 @@ def bce_loss_with_mask(logits: torch.Tensor, labels: torch.Tensor, mask: torch.T
 def _upper_flat(arr: torch.Tensor) -> torch.Tensor:
     """Flatten strictly upper-triangular part (i<j)."""
     L = arr.shape[-1]
-    iu = torch.triu_indices(L, L, offset=1, device=arr.device)
+   # MPS doesn’t implement triu_indices; create on CPU, then move.
+    iu = torch.triu_indices(L, L, offset=1)  # CPU by default
+    if iu.device != arr.device:
+        iu = iu.to(arr.device)
     return arr[..., iu[0], iu[1]]
+   # iu = torch.triu_indices(L, L, offset=1, device=arr.device)
+   # return arr[..., iu[0], iu[1]]
 
 def _batch_metrics(logits: torch.Tensor, y: torch.Tensor, m: torch.Tensor) -> Dict[str, float]:
     B, L, _ = y.shape
@@ -365,4 +371,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -8,4 +8,3 @@ def test_pairs_forward():
     m = BilinearScorer(d_in=64, rank=16)
     y = m.forward_pairs(H, pairs)
     assert y.shape == (3,)
-
