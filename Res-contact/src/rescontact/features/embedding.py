@@ -3,16 +3,15 @@ from __future__ import annotations
 
 import hashlib
 import os
+import logging
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
 import torch
-
-# Hugging Face (load base ESM model WITHOUT a pooling head)
 from transformers import AutoTokenizer, AutoModel, logging as hf_logging
 try:
-    from transformers import EsmModel, EsmConfig  # preferred if available
+    from transformers import EsmModel, EsmConfig
     _HAS_ESM = True
 except Exception:
     EsmModel = None
@@ -24,49 +23,50 @@ def _sha16(x: str) -> str:
     return hashlib.sha1(x.encode("utf-8")).hexdigest()[:16]
 
 
-def _set_hf_verbosity_from_env():
+def _set_hf_verbosity_from_env() -> None:
     """
-    Robustly set Transformers verbosity from env:
-      - TRANSFORMERS_VERBOSITY can be: DEBUG/INFO/WARNING/ERROR/CRITICAL (any case)
-      - or a numeric level (10/20/30/40/50)
-    Defaults to ERROR if missing/invalid.
+    Accepts TRANSFORMERS_VERBOSITY as:
+      - named:  "critical|error|warning|info|debug|detail"
+      - numeric: "50|40|30|20|10" (or int values)
+    Falls back to ERROR if unrecognized.
     """
-    val = os.environ.get("TRANSFORMERS_VERBOSITY", "ERROR")
-    # If numeric, use it directly
-    try:
-        num = int(val)
-        hf_logging.set_verbosity(num)
-        return
-    except Exception:
-        pass
+    val = os.environ.get("TRANSFORMERS_VERBOSITY", "error")
+    level: int
 
-    # Map string (case-insensitive) to constant
-    level_str = str(val).upper().strip()
-    level_val = {
-        "DEBUG": hf_logging.DEBUG,
-        "INFO": hf_logging.INFO,
-        "WARNING": hf_logging.WARNING,
-        "ERROR": hf_logging.ERROR,
-        "CRITICAL": hf_logging.CRITICAL,
-    }.get(level_str, hf_logging.ERROR)
-    hf_logging.set_verbosity(level_val)
+    # numeric string or int
+    try:
+        level = int(val)
+    except Exception:
+        name = str(val).strip().lower()
+        name_to_level = {
+            "critical": logging.CRITICAL,
+            "error":    logging.ERROR,
+            "warning":  logging.WARNING,
+            "info":     logging.INFO,
+            "debug":    logging.DEBUG,
+            "detail":   logging.DEBUG,  # map "detail" to DEBUG
+        }
+        level = name_to_level.get(name, logging.ERROR)
+
+    hf_logging.set_verbosity(level)
 
 
 class ESMEmbedder:
     """
     Lightweight ESM2 embedder using Hugging Face Transformers.
 
-    - Model ID examples:
-        facebook/esm2_t6_8M_UR50D        (tiny, good for laptop)
-        facebook/esm2_t12_35M_UR50D      (bigger)
-    - Caches per-sequence embeddings to NPZ in `cache_dir/emb/`.
+    Examples:
+      - facebook/esm2_t6_8M_UR50D
+      - facebook/esm2_t12_35M_UR50D
 
+    Caches per-sequence embeddings to NPZ in `cache_dir/emb/`.
     Returns numpy float32 arrays of shape [L, D].
     """
 
     def __init__(self, model_id: str, cache_dir: str | Path, device: torch.device):
-        # Silence noisy HF warnings by default (can override via env)
+        # Robust logger setup
         _set_hf_verbosity_from_env()
+        os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
         self.model_id = model_id
         self.cache_root = Path(cache_dir)
@@ -88,35 +88,27 @@ class ESMEmbedder:
         if self.verbose:
             print(f"[rescontact/ESM] Loading {self.model_id} on {self.device} ...", flush=True)
 
-        # Tokenizer
-        self._tok = AutoTokenizer.from_pretrained(self.model_id, use_fast=True)
+        # ESM uses a slow tokenizer; be explicit
+        self._tok = AutoTokenizer.from_pretrained(self.model_id, use_fast=False)
 
-        # Model (prefer EsmModel WITHOUT a pooling layer to avoid pooler warnings)
+        # Prefer EsmModel without pooling if available
         if _HAS_ESM:
             try:
                 cfg = EsmConfig.from_pretrained(self.model_id)
-                # Some configs expose add_pooling_layer; turn it off if present
                 if hasattr(cfg, "add_pooling_layer"):
                     cfg.add_pooling_layer = False
                 self._mdl = EsmModel.from_pretrained(self.model_id, config=cfg)
             except Exception:
-                # Fallback to AutoModel if EsmModel path fails for any reason
                 self._mdl = AutoModel.from_pretrained(self.model_id)
         else:
             self._mdl = AutoModel.from_pretrained(self.model_id)
 
-        # Device + eval
         self._mdl.to(self.device).eval()
 
         if self.verbose:
-            try:
-                d = int(getattr(self._mdl.config, "hidden_size", 0))
-                if d > 0:
-                    print(f"[rescontact/ESM] Loaded OK (hidden_size={d})", flush=True)
-                else:
-                    print("[rescontact/ESM] Loaded OK", flush=True)
-            except Exception:
-                print("[rescontact/ESM] Loaded OK", flush=True)
+            d = int(getattr(self._mdl.config, "hidden_size", 0) or 0)
+            msg = f"[rescontact/ESM] Loaded OK (hidden_size={d})" if d > 0 else "[rescontact/ESM] Loaded OK"
+            print(msg, flush=True)
 
     @torch.no_grad()
     def embed(self, seq: str) -> np.ndarray:
@@ -127,8 +119,7 @@ class ESMEmbedder:
         key = _sha16(seq)
         npz_path = self.emb_dir / f"{key}.npz"
         if npz_path.exists():
-            arr = np.load(npz_path)["h"]
-            return arr
+            return np.load(npz_path)["h"]
 
         self._ensure_loaded()
         assert self._tok is not None and self._mdl is not None
@@ -139,12 +130,10 @@ class ESMEmbedder:
         out = self._mdl(**toks).last_hidden_state  # [1, L+special, D]
         X = out[0]  # [L+special, D]
 
-        # Strip special tokens if present
         L = len(seq)
-        if X.shape[0] >= L + 2:
-            X = X[1: 1 + L]
+        if X.shape[0] >= L + 2:  # drop BOS/EOS if present
+            X = X[1:1 + L]
 
-        # Always float32 (MPS prefers fp32)
         X = X.detach().to("cpu", dtype=torch.float32).numpy()
         np.savez_compressed(npz_path, h=X)
         return X
