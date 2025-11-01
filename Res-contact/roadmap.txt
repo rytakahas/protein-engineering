@@ -1,119 +1,86 @@
-# Res-Contact — Time Breakdown Roadmap (UPDATED for 8-GB MacBook Air M3)
+Res-Contact — 7‑Day Delivery Roadmap (Laptop‑friendly: 8‑GB MacBook Air M3)
+Dates: Tue, Oct 28, 2025 → Mon, Nov 03, 2025
 
-## Objective (by Monday, November 3, 2025)
-Deliver a working end-to-end pipeline (CLI + FastAPI) plus a small monitoring notebook that:
-1) ingests PDB/mmCIF,
-2) builds residue features from ESM2 (MSA optional & budgeted),
-3) trains a **low-rank bilinear** contact scorer with **O(P) sampled pairs**,
-4) reports PR-AUC / ROC-AUC / Precision@k (with intra vs inter-chain splits).
+Objective
+- By Day 3 (Thu, Oct 30): deliver a working end‑to‑end pipeline (CLI entrypoint + FastAPI /train & /predict) and a tiny monitoring notebook.
+- By Day 7 (Mon, Nov 03): polish, docs, packaging, optional MSA ablation, and final QA sign‑off.
 
----
+Constraints & Defaults (kept)
+- Device: Prefer Apple MPS (fallback CPU). Clear cache between chains; call torch.mps.synchronize() when helpful.
+- Model: ESM2 t6_8M (d=320). Cache per‑sequence embeddings to .cache/rescontact as .npz.
+- MSA: OFF by default. Optional budgeted Jackhmmer/BLAST with caps (TOTAL_QUERY_BUDGET, TIMEOUT_S, MAX_SEQS). If budgets fail → continue ESM‑only.
+- Memory: Never build full L×L during training; sample pairs (all positives + random negatives).
+- Complexity: Low‑rank bilinear scorer with O(P·r), r in [64, 128].
+- Long sequences: cap MAX_LEN_PER_CHAIN=600.
 
-## Constraints & Strategy (8-GB MacBook Air M3)
-- **Device:** Prefer Apple **MPS**, fallback to CPU.
-- **Model:** Default **ESM2 t6_8M**; cache per-sequence embeddings to disk (`.npz`).
-- **MSA:** **OFF by default** (slow servers / rate limits). Optional budgeted online Jackhmmer/BLAST:
-  - `MSA_TOTAL_QUERY_BUDGET` (e.g., 10), `MSA_TIMEOUT_S` (e.g., 40s), `MSA_MAX_SEQS` (e.g., 64).
-  - If MSA is skipped or budget/timeouts hit → continue with ESM2-only.
-- **Memory:** Never build full **L×L** maps in training. Use **sampled pairs** (all positives + random negatives).
-- **Complexity:** Per step **O(P·r)** for rank-r bilinear with sampled pairs (P ≪ L²).
-- **Streaming:** Iterate chain-by-chain; free tensors; `torch.mps.synchronize()` + `empty_cache()` where helpful.
-- **Long proteins:** cap `MAX_LEN_PER_CHAIN` (e.g., 600).
+Pre‑processing (finish by end of Day 2)
+1) Parse structure (PDB/mmCIF) → chains, PPBuilder sequence, Cα coords (skip residues without Cα).
+2) Seq↔coord alignment with stable indices i∈[0, L); honor MAX_LEN_PER_CHAIN.
+3) Valid mask M∈{0,1}^{L×L}: zero out pairs touching missing residues; diagonal=0.
+4) Labels: Y[i,j]=1 if Cα–Cα < 8.0Å (upper triangle for metrics; symmetric if configured).
+5) Embeddings: ESM2 hidden states H∈ℝ^{L×320} → cache.
+6) (Optional) MSA→PSSM: if enabled and budget allows, append 21 dims; else zeros for that block.
+7) Pair sampling (training): collect all positives + NEG_RATIO random negatives per positive.
 
----
+Post‑processing (finish by end of Day 3 for E2E demo)
+- Probabilities: P = sigmoid(logits).
+- Symmetry & masking: (optional) P ← 0.5·(P + Pᵀ); zero diagonal; apply M.
+- Thresholding: choose τ (default 0.5 or F1‑optimal on validation). Final binary map: Ŷ = (P≥τ) ∧ M.
+- Metrics (no long‑range split): PR‑AUC, ROC‑AUC, F1 on masked upper triangle; also report intra vs inter if multimer.
+- Visualization: heatmaps of P and Ŷ with mask/diag handling.
 
-## Sections & Hours
-- Design & notebook prototype (end-to-end skeleton): **8 h**
-- Data ingestion & parsing (SEQRES/ATOM alignment): **4 h**
-- Embedding & feature engineering (ESM2; optional MSA/PSSM, pairwise feats): **5 h** (ESM2-only) **+2–4 h** if MSA ablation
-- **Model training & tuning (low-rank bilinear + O(P) sampling): 8 h**
-- Evaluation & plots (metrics notebook + charts): **6 h**
-- Reporting & packaging (README, API how-to, CLI usage): **6 h**
-**Total:** 37 h (ESM2-only) or **39–41 h** (with MSA ablation)
+Training (O(P) Low‑Rank Bilinear)
+- Per chain compute A=HU and B=HV once (O(L·d·r)).
+- For sampled set P (all positives + k× negatives), score via r‑dim inner products (O(P·r)).
+- BCEWithLogitsLoss; AdamW(lr=1e‑3); r∈{64,96,128}; NEG_RATIO≈3; gradient clip optional; seed=42.
 
----
+Deliverables
+- CLI: scripts/train.py, scripts/eval.py (flags for ranks, sampling, inter‑chain, MSA budgets).
+- FastAPI: src/rescontact/api/app.py → /train, /predict.
+- Artifacts: artifacts/rescontact_best.pt, artifacts/metrics.jsonl, results/test_metrics.csv.
+- Notebook: notebooks/monitor_metrics.ipynb (curves + summary).
+- Docs: README with quickstart, O(P) rationale, MSA budgeting, ablation guide.
 
-## Method (ESM2 baseline → optional MSA; O(P) optimization)
-- **Backbone embeddings:** Per-residue hidden states from **ESM2** (default: `facebook/esm2_t6_8M_UR50D`).
-- **Optional MSA → PSSM (budgeted):** Remote Jackhmmer/BLAST with strict query/time budgets.
-  - Build frequency matrix **[L×20]** (+entropy) aligned to the query; cache to disk.
-- **Contact head (default): Low-Rank Bilinear**
-  - Learn projections **U,V ∈ ℝ^{d×r}** (small rank r, e.g., 64–128).
-  - Residue i score vs j: **sᵢⱼ = (HᵢU) · (HⱼV) + b** → implicit **rank-r** factorization.
-  - **Training:** Score only a **subset of pairs** P per step (all positives + k× negatives).
-  - **Complexity:** Project once per chain (O(L·d·r)), then **O(P·r)** for pair scoring.
-- **(Optional) Pair-MLP ablation:** On concatenated pairwise features `[hi, hj, |hi−hj|, hi⊙hj, pssm_i, pssm_j]`.
+7‑Day Timeline (with hours and tests baked in)
+- Day 1 (Tue, Oct 28): 8h
+  • Project skeleton + notebook prototype E2E (tiny sample). Confirm logging, config, device selection (MPS/CPU). (6h)
+  • Smoke tests for IO and config; minimal pytest for loaders. (2h)
 
----
+- Day 2 (Wed, Oct 29): 8h
+  • Finish pre‑processing: parsing, alignment, masks, labels; deterministic cropping. (4h)
+  • ESM2 embedding cache path and re‑use; data contracts; small fixtures. (3h)
+  • Pytest: unit tests for parsing/alignment/masks. (1h)
 
-## Data Pre-processing
-1. **Parse structure:** PDB/mmCIF → chains, sequences (PPBuilder), Cα coordinates.
-2. **Seq↔coord alignment:** Stable per-chain residue indexing under `MAX_LEN_PER_CHAIN`.
-3. **Contact labels:** Boolean contact by **Cα–Cα < 8.0 Å**; intra by default; inter-chain toggle.
-4. **Embeddings:** Tokenize; run ESM2; strip specials; cache `[L, d]`.
-5. **(Optional) MSA→PSSM:** Jackhmmer/BLAST (budgeted). Build `[L, 20]` (+entropy).
-6. **Pair sampling:** For training, collect **all positives** and **NEG_RATIO** negatives per positive.
+- Day 3 (Thu, Oct 30): 8h
+  • Implement low‑rank bilinear head + O(P) sampler; training loop (AdamW, BCE). (6h)
+  • Quick validation run; store metrics.jsonl; add tests for sampler and shapes. (2h)
+  → Milestone: working E2E pipeline (CLI + FastAPI endpoints returning metrics).
 
----
+- Day 4 (Fri, Oct 31): 7h
+  • Metrics notebook: PR‑AUC/ROC‑AUC/Precision@L,L/2,L/5; intra vs inter. (3h)
+  • FastAPI polish + CLI flags; add request/response pydantic schemas. (2h)
+  • Pytest integration path; sanitize caches; profiling pass. (1h)
+  • Buffer/debug. (1h)
 
-## Training (O(P) with Low-Rank Bilinear)
-- **Sampling per chain:** 
-  - Positives: all (or capped) close pairs.
-  - Negatives: random pairs at ratio (e.g., 3×); avoid duplicates.
-- **Per-step operations:**
-  - Compute **A=HU, B=HV** once (O(L·d·r)).
-  - For sampled set **P**, score pairs via **r-dim inner products** (O(P·r)).
-- **Inter-chain (optional):** Enable **A–B** scoring with rectangular sampling (cap pairs).
-- **Loss:** `BCEWithLogitsLoss()` on sampled pairs.
-- **Optimizer:** AdamW(lr=1e-3); rank r=128 (tunable).
-- **Stability:** Gradient clipping optional; set `seed=42`.
+- Day 5 (Sat, Nov 01): 5h
+  • Containerization: Dockerfile (uvicorn, /health, /metrics), Makefile targets (build/run/push). (2h)
+  • Local load test (hey/ab) and Prometheus scrape for /metrics; verify PSI categories. (2h)
+  • README updates: container run examples and curl/requests snippets. (1h)
 
----
+- Day 6 (Sun, Nov 02): 4h
+  • Monitoring baseline & drift: run scripts/build_baseline.py; save monitor/baseline.json. (1.5h)
+  • Optional MSA ablation scaffolding (budgeted providers, dry‑run); record budgets in config. (1h)
+  • Release prep: changelog, version bump to v0.1.0‑rc, checklist for QA. (1.5h)
 
-## Evaluation & Post-processing
-- **Approx (fast):** sample pairs; compute **PR-AUC / ROC-AUC / Precision@k**.
-- **Metrics:** Global + per-PDB; **intra vs inter** reported separately.
-- **Artifacts:** `artifacts/metrics.jsonl` (one line/epoch + test summary), CSVs under `results/`.
+- Day 7 (Mon, Nov 03): 7h
+  • Packaging + README polish + examples; monitoring notebook final pass. (4h)
+  • Optional MSA ablation with strict budgets; inter‑chain toggle sanity. (2h)
+  • Final QA + sign‑off; tag v0.1.0‑rc. (1h)
 
----
+Hours Summary
+- Total (ESM2‑only): 47h (8/8/8/7/5/4/7). Optional MSA fits in Day 6–7 budget.
 
-## Hyperparameters & Training Setup
-- **ESM2 variant:** `t6_8M` (default) / `t12_35M` (if resources allow).
-- **Bilinear rank:** `r = 128` (try 64/96 for speed).
-- **NEG_RATIO:** 3 (try 1–5).
-- **TRAIN_BATCH_PAIRS:** 20k (tune 10k–50k).
-- **EPOCHS:** 3 (prototype) → 10+ for full runs.
-- **Cutoff:** 8.0 Å (Cα).
-- **MSA budgets:** `MSA_TOTAL_QUERY_BUDGET=10`, `MSA_TIMEOUT_S=40`, `MSA_MAX_SEQS=64`.
-
----
-
-## Deliverables
-- **CLI scripts:** `scripts/train.py`, `scripts/eval.py`
-  - Flags to toggle MSA, inter-chain, ranks, and pair budgets.
-- **FastAPI service:** `src/rescontact/api/app.py`
-  - `/train` to run pipeline (±MSA); `/predict` to score contacts on uploaded PDB(mmCIF).
-- **Artifacts:** `artifacts/rescontact_best.pt`, `artifacts/metrics.jsonl`, `results/test_metrics.csv`
-- **Notebook:** `notebooks/monitor_metrics.ipynb` (plots PR-AUC over epochs; shows test metrics).
-- **README/API notes:** Quickstart, env setup, endpoints, O(P) explanation, MSA budgeting, and ablation guide.
-
----
-
-## Timeline (targeting delivery by Monday, November 3, 2025)
-- **Day 1 — Notebook prototype (8 h):** wire E2E on tiny subset; confirm logging & plots.
-- **Day 2 — Data & features (6–8 h):** finalize parsing/alignment (4 h) + ESM2 features (2–4 h).
-- **Day 3 — Train & tune (8 h):** low-rank bilinear + O(P) sampling; choose rank/NEG_RATIO by val PR-AUC.
-- **Day 4 — Eval & packaging (6–8 h):** finalize charts; clean metrics notebook; add README/API how-to.
-- **Day 5 — Buffer & polish (4–6 h):** optional MSA ablation with strict budgets; inter-chain toggle; refactors.
-
----
-
-## Notes & Decisions
-- **Default mode:** ESM2-only, **no MSA** (fast, reliable on laptop).
-- **MSA:** optional experiment with strict budgets; proceed if servers are responsive, otherwise skip automatically.
-- **Training:** **O(P·r)** low-rank bilinear; no full L×L in training.
-- **Metrics:** PR-AUC, ROC-AUC, Precision@L/L2/L5; report **intra vs inter**.
-- **Repro:** seed=42; cache embeddings/features to disk; small, incremental checkpoints.
-
----
-
+Tracking notes
+- NEG_RATIO, rank r, and TRAIN_BATCH_PAIRS are surfaced as flags and recorded in metrics.jsonl.
+- Cache keys include model id + sequence hash + crop settings for determinism.
+- No full L×L tensors in training; all positives + sampled negatives only.
