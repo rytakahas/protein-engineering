@@ -24,6 +24,34 @@ def _sha16(x: str) -> str:
     return hashlib.sha1(x.encode("utf-8")).hexdigest()[:16]
 
 
+def _set_hf_verbosity_from_env():
+    """
+    Robustly set Transformers verbosity from env:
+      - TRANSFORMERS_VERBOSITY can be: DEBUG/INFO/WARNING/ERROR/CRITICAL (any case)
+      - or a numeric level (10/20/30/40/50)
+    Defaults to ERROR if missing/invalid.
+    """
+    val = os.environ.get("TRANSFORMERS_VERBOSITY", "ERROR")
+    # If numeric, use it directly
+    try:
+        num = int(val)
+        hf_logging.set_verbosity(num)
+        return
+    except Exception:
+        pass
+
+    # Map string (case-insensitive) to constant
+    level_str = str(val).upper().strip()
+    level_val = {
+        "DEBUG": hf_logging.DEBUG,
+        "INFO": hf_logging.INFO,
+        "WARNING": hf_logging.WARNING,
+        "ERROR": hf_logging.ERROR,
+        "CRITICAL": hf_logging.CRITICAL,
+    }.get(level_str, hf_logging.ERROR)
+    hf_logging.set_verbosity(level_val)
+
+
 class ESMEmbedder:
     """
     Lightweight ESM2 embedder using Hugging Face Transformers.
@@ -38,7 +66,7 @@ class ESMEmbedder:
 
     def __init__(self, model_id: str, cache_dir: str | Path, device: torch.device):
         # Silence noisy HF warnings by default (can override via env)
-        hf_logging.set_verbosity(os.environ.get("TRANSFORMERS_VERBOSITY", "error").lower())
+        _set_hf_verbosity_from_env()
 
         self.model_id = model_id
         self.cache_root = Path(cache_dir)
@@ -67,6 +95,7 @@ class ESMEmbedder:
         if _HAS_ESM:
             try:
                 cfg = EsmConfig.from_pretrained(self.model_id)
+                # Some configs expose add_pooling_layer; turn it off if present
                 if hasattr(cfg, "add_pooling_layer"):
                     cfg.add_pooling_layer = False
                 self._mdl = EsmModel.from_pretrained(self.model_id, config=cfg)
