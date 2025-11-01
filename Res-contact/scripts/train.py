@@ -77,7 +77,7 @@ class SimpleContactNet(nn.Module):
         super().__init__()
         self.proj = nn.Linear(embed_dim, hidden_dim)
         self.act = nn.ReLU()
-        self.drop = nn.Dropout(dropout_p)  # <-- added dropout (default 0.1)
+        self.drop = nn.Dropout(dropout_p)  # dropout (default 0.1)
         self.bilin = nn.Linear(hidden_dim, hidden_dim, bias=False)
         self.dist_bias = nn.Embedding(dist_bias_max, 1)
 
@@ -85,7 +85,7 @@ class SimpleContactNet(nn.Module):
         # emb: [B, L, D]
         z = self.drop(self.act(self.proj(emb)))  # [B,L,H] + dropout
         zW = self.bilin(z)
-        logits = torch.einsum("blh,bmh->blm", zW, z) / math.sqrt(z.shape[-1])
+        logits = torch.einsum("blh,bmh->blm", zW, z) / math.sqrt(max(z.shape[-1], 1))
         B, L, _ = logits.shape
         idx = torch.arange(L, device=logits.device)
         dist = (idx[None, :] - idx[:, None]).abs().clamp_max(self.dist_bias.num_embeddings - 1)
@@ -106,15 +106,27 @@ def bce_loss_with_mask(logits: torch.Tensor, labels: torch.Tensor, mask: torch.T
 def _upper_flat(arr: torch.Tensor) -> torch.Tensor:
     """Flatten strictly upper-triangular part (i<j)."""
     L = arr.shape[-1]
-   # MPS doesn’t implement triu_indices; create on CPU, then move.
     iu = torch.triu_indices(L, L, offset=1)  # CPU by default
     if iu.device != arr.device:
         iu = iu.to(arr.device)
     return arr[..., iu[0], iu[1]]
-   # iu = torch.triu_indices(L, L, offset=1, device=arr.device)
-   # return arr[..., iu[0], iu[1]]
 
-def _batch_metrics(logits: torch.Tensor, y: torch.Tensor, m: torch.Tensor) -> Dict[str, float]:
+def _compute_f1(y_true: np.ndarray, y_prob: np.ndarray, tau: float) -> float:
+    pred = (y_prob >= tau).astype(np.int32)
+    tp = int((pred == 1).astype(np.int32)[y_true == 1].sum())
+    fp = int((pred == 1).astype(np.int32)[y_true == 0].sum())
+    fn = int((pred == 0).astype(np.int32)[y_true == 1].sum())
+    prec = tp / max(tp + fp, 1)
+    rec  = tp / max(tp + fn, 1)
+    return 2 * prec * rec / max(prec + rec, 1e-8)
+
+def _batch_metrics(logits: torch.Tensor, y: torch.Tensor, m: torch.Tensor,
+                   threshold: float = 0.5, want_best_f1: bool = True) -> Dict[str, float]:
+    """
+    Returns metrics averaged across batch:
+      - pal (P@L), roc, pr, f1 at `threshold`
+      - if want_best_f1: bf1 and bf1_tau over a small grid (0.10..0.90 step 0.05)
+    """
     B, L, _ = y.shape
     probs = torch.sigmoid(logits)
 
@@ -122,6 +134,11 @@ def _batch_metrics(logits: torch.Tensor, y: torch.Tensor, m: torch.Tensor) -> Di
     rocs: List[float] = []
     prs:  List[float] = []
     f1s:  List[float] = []
+    bf1s: List[float] = []
+    btau: List[float] = []
+
+    # pre-build grid
+    tau_grid = np.round(np.arange(0.10, 0.90 + 1e-9, 0.05), 2) if want_best_f1 else []
 
     for b in range(B):
         yb = _upper_flat(y[b]).detach().cpu()
@@ -140,6 +157,7 @@ def _batch_metrics(logits: torch.Tensor, y: torch.Tensor, m: torch.Tensor) -> Di
             topk = np.argpartition(-pv, kth=k-1)[:k]
             pals.append(float(yv[topk].mean()))
 
+        # PR / ROC
         if HAVE_SK:
             try:
                 rocs.append(float(roc_auc_score(yv, pv)))
@@ -150,24 +168,35 @@ def _batch_metrics(logits: torch.Tensor, y: torch.Tensor, m: torch.Tensor) -> Di
             except Exception:
                 pass
 
-        pred = (pv >= 0.5).astype(np.int32)
-        tp = int((pred == 1).astype(np.int32)[yv == 1].sum())
-        fp = int((pred == 1).astype(np.int32)[yv == 0].sum())
-        fn = int((pred == 0).astype(np.int32)[yv == 1].sum())
-        prec = tp / max(tp + fp, 1)
-        rec  = tp / max(tp + fn, 1)
-        f1   = 2 * prec * rec / max(prec + rec, 1e-8)
-        f1s.append(float(f1))
+        # F1 at given threshold
+        f1s.append(_compute_f1(yv, pv, threshold))
+
+        # Best-F1 across a grid
+        if want_best_f1 and len(tau_grid):
+            best, best_t = 0.0, 0.5
+            for t in tau_grid:
+                f1t = _compute_f1(yv, pv, float(t))
+                if f1t > best:
+                    best, best_t = f1t, float(t)
+            bf1s.append(best); btau.append(best_t)
 
     def _avg(xs): return float(np.mean(xs)) if len(xs) else float("nan")
-    return {"pal": _avg(pals), "roc": _avg(rocs), "pr": _avg(prs), "f1": _avg(f1s)}
+    out = {
+        "pal": _avg(pals), "roc": _avg(rocs), "pr": _avg(prs),
+        "f1": _avg(f1s)
+    }
+    if want_best_f1:
+        out["bf1"] = _avg(bf1s)
+        out["bf1_tau"] = _avg(btau)
+    return out
 
 
 @torch.no_grad()
-def eval_epoch(model: nn.Module, loader: DataLoader, device: torch.device, want_dim: int) -> Tuple[float, Dict[str, float]]:
+def eval_epoch(model: nn.Module, loader: DataLoader, device: torch.device,
+               want_dim: int, threshold: float) -> Tuple[float, Dict[str, float]]:
     model.eval()
     tot, n = 0.0, 0
-    pal_list, roc_list, pr_list, f1_list = [], [], [], []
+    pal_list, roc_list, pr_list, f1_list, bf1_list, btau_list = [], [], [], [], [], []
     for batch in loader:
         if batch is None:
             continue
@@ -179,14 +208,20 @@ def eval_epoch(model: nn.Module, loader: DataLoader, device: torch.device, want_
         loss = bce_loss_with_mask(logits, y, m)
         tot += float(loss.item()); n += 1
 
-        met = _batch_metrics(logits, y, m)
-        if not math.isnan(met["pal"]): pal_list.append(met["pal"])
-        if not math.isnan(met["roc"]): roc_list.append(met["roc"])
-        if not math.isnan(met["pr"]):  pr_list.append(met["pr"])
-        if not math.isnan(met["f1"]):  f1_list.append(met["f1"])
+        met = _batch_metrics(logits, y, m, threshold=threshold, want_best_f1=True)
+        for k, buf in [
+            ("pal", pal_list), ("roc", roc_list), ("pr", pr_list),
+            ("f1", f1_list), ("bf1", bf1_list), ("bf1_tau", btau_list)
+        ]:
+            v = met.get(k, float("nan"))
+            if not math.isnan(v):
+                buf.append(v)
 
     def _avg(xs): return float(np.mean(xs)) if len(xs) else float("nan")
-    metrics = {"pal": _avg(pal_list), "roc": _avg(roc_list), "pr": _avg(pr_list), "f1": _avg(f1_list)}
+    metrics = {
+        "pal": _avg(pal_list), "roc": _avg(roc_list), "pr": _avg(pr_list),
+        "f1": _avg(f1_list), "bf1": _avg(bf1_list), "bf1_tau": _avg(btau_list)
+    }
     return tot / max(n, 1), metrics
 
 
@@ -232,10 +267,12 @@ def parse_args():
     ap.add_argument("--batch_size", type=int, default=None, help="Override training.batch_size.")
     ap.add_argument("--debug", action="store_true", help="Extra logs; used with --max_train_batches for smoke tests.")
     ap.add_argument("--max_train_batches", type=int, default=None, help="Iterate only N batches per epoch.")
-    # The following CLI MSA flags are *optional* and do nothing unless you pass them:
+    # Optional MSA flags (do nothing unless passed)
     ap.add_argument("--msa", action="store_true", help="Force-enable MSA (overrides YAML).")
     ap.add_argument("--no_msa", action="store_true", help="Force-disable MSA (overrides YAML).")
     ap.add_argument("--embed_dim", type=int, help="Override model.embed_dim (320 or 341).")
+    # NEW: threshold override
+    ap.add_argument("--threshold", type=float, default=None, help="Eval threshold (overrides YAML inference.threshold).")
     return ap.parse_args()
 
 
@@ -264,6 +301,11 @@ def main():
         cfg["features"]["use_msa"] = False
     if args.embed_dim is not None:
         cfg["model"]["embed_dim"] = int(args.embed_dim)
+    # Read eval threshold from YAML; allow CLI override
+    tau = float(cfg.get("inference", {}).get("threshold", 0.5))
+    if args.threshold is not None:
+        tau = float(args.threshold)
+        cfg.setdefault("inference", {})["threshold"] = tau
 
     set_seed(int(cfg["project"]["seed"]))
     device = pick_device(cfg["project"].get("device_preference", ["cuda", "mps", "cpu"]))
@@ -315,10 +357,12 @@ def main():
 
     # ---- Model/Opt ----
     want_dim = int(cfg["model"]["embed_dim"])   # 320 (no MSA) or 341 (with MSA-1D)
+    dropout_p = float(cfg["model"].get("dropout_p", 0.1))
     model = SimpleContactNet(
         embed_dim=want_dim,
         hidden_dim=int(cfg["model"]["hidden_dim"]),
         dist_bias_max=int(cfg["model"]["distance_bias_max"]),
+        dropout_p=dropout_p,
     ).to(device)
     nparams = sum(p.numel() for p in model.parameters()) / 1e6
     print(f"[rescontact] model built ({nparams:.2f}M params) → start training")
@@ -348,15 +392,25 @@ def main():
             model, loader_tr, device, optimizer, use_amp, want_dim,
             max_batches=args.max_train_batches, debug=args.debug
         )
-        va_loss, va_metrics = eval_epoch(model, loader_va, device, want_dim)
+        va_loss, va_metrics = eval_epoch(model, loader_va, device, want_dim, threshold=tau)
         dt = time.time() - t0
 
-        roc = va_metrics["roc"]; pr = va_metrics["pr"]; pal = va_metrics["pal"]; f1 = va_metrics["f1"]
+        roc = va_metrics.get("roc", float("nan"))
+        pr  = va_metrics.get("pr",  float("nan"))
+        pal = va_metrics.get("pal", float("nan"))
+        f1  = va_metrics.get("f1",  float("nan"))
+        bf1 = va_metrics.get("bf1", float("nan"))
+        btau= va_metrics.get("bf1_tau", float("nan"))
+
         roc_s = f"{roc:.3f}" if not math.isnan(roc) else "na"
         pr_s  = f"{pr:.3f}"  if not math.isnan(pr)  else "na"
         pal_s = f"{pal:.3f}" if not math.isnan(pal) else "na"
         f1_s  = f"{f1:.3f}"  if not math.isnan(f1)  else "na"
-        print(f"[epoch {ep}] train={tr_loss:.4f}  val={va_loss:.4f}  P@L={pal_s}  ROC={roc_s}  PR={pr_s}  F1={f1_s}  ({dt:.1f}s)")
+        bf1_s = f"{bf1:.3f}" if not math.isnan(bf1) else "na"
+        btau_s= f"{btau:.2f}" if not math.isnan(btau) else "na"
+
+        # Keep the classic line (Optuna parser matches through F1=...)
+        print(f"[epoch {ep}] train={tr_loss:.4f}  val={va_loss:.4f}  ROC={roc_s}  PR={pr_s}  F1={f1_s}  (t={tau:.2f})  BF1={bf1_s}@{btau_s}  ({dt:.1f}s)")
 
         if va_loss + 1e-6 < best_val:
             best_val = va_loss
@@ -371,3 +425,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

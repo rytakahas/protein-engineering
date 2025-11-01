@@ -3,26 +3,25 @@ torch>=2.5,<2.6
 numpy>=1.26,<3
 scipy>=1.11,<2
 pandas>=2.2,<3
-pyyaml>=6.0
+PyYAML>=6.0,<7
 
 # --- ML / NLP ---
 transformers>=4.44,<5
 tokenizers>=0.19,<0.21
 scikit-learn>=1.4,<1.6
+optuna>=3.6,<4
 
 # --- Bio ---
-biopython>=1.83
+biopython>=1.83,<2
 
 # --- API ---
 fastapi>=0.111,<0.116
 pydantic>=2.7,<3
-uvicorn[standard]>=0.29,<0.33
+uvicorn[standard]>=0.30,<0.33
 
 # --- Utils ---
 tqdm>=4.66,<5
 requests>=2.32,<3
-regex>=2023.12.25
-
-# --- Optional ---
-# fair-esm>=2.0.0   # Only if you switch to the native FAIR ESM API instead of Transformers
+regex>=2024.5.15
+matplotlib>=3.8,<4
 

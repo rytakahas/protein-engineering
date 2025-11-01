@@ -14,7 +14,7 @@ paths:
   logs_dir:  "./logs"
 
 labels:
-  # Contacts are Cβ–Cβ (Gly → Cα) within threshold; symmetric label map.
+  # Contacts are Cα–Cα within threshold; symmetric label map.
   contact_threshold_angstrom: 8.0
   include_inter_chain: true
   symmetric: true

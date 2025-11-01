@@ -8,7 +8,16 @@ from typing import Optional
 
 import numpy as np
 import torch
-from transformers import AutoModel, AutoTokenizer
+
+# Hugging Face (load base ESM model WITHOUT a pooling head)
+from transformers import AutoTokenizer, AutoModel, logging as hf_logging
+try:
+    from transformers import EsmModel, EsmConfig  # preferred if available
+    _HAS_ESM = True
+except Exception:
+    EsmModel = None
+    EsmConfig = None
+    _HAS_ESM = False
 
 
 def _sha16(x: str) -> str:
@@ -28,6 +37,9 @@ class ESMEmbedder:
     """
 
     def __init__(self, model_id: str, cache_dir: str | Path, device: torch.device):
+        # Silence noisy HF warnings by default (can override via env)
+        hf_logging.set_verbosity(os.environ.get("TRANSFORMERS_VERBOSITY", "error").lower())
+
         self.model_id = model_id
         self.cache_root = Path(cache_dir)
         self.cache_root.mkdir(parents=True, exist_ok=True)
@@ -36,7 +48,7 @@ class ESMEmbedder:
 
         self.device = device
         self._tok: Optional[AutoTokenizer] = None
-        self._mdl: Optional[AutoModel] = None
+        self._mdl: Optional[torch.nn.Module] = None
 
         self.verbose = bool(int(os.environ.get("RESCONTACT_VERBOSE", "1")))
         if self.verbose:
@@ -47,16 +59,33 @@ class ESMEmbedder:
             return
         if self.verbose:
             print(f"[rescontact/ESM] Loading {self.model_id} on {self.device} ...", flush=True)
-        # Tokenizer+model (HF hub)
-        # NOTE: use base AutoModel (EsmModel) – we just need hidden states
+
+        # Tokenizer
         self._tok = AutoTokenizer.from_pretrained(self.model_id, use_fast=True)
-        self._mdl = AutoModel.from_pretrained(self.model_id)
-        self._mdl.to(self.device).eval()
-        if self.verbose:
-            # infer embed dim from config if available
+
+        # Model (prefer EsmModel WITHOUT a pooling layer to avoid pooler warnings)
+        if _HAS_ESM:
             try:
-                d = int(self._mdl.config.hidden_size)
-                print(f"[rescontact/ESM] Loaded OK (hidden_size={d})", flush=True)
+                cfg = EsmConfig.from_pretrained(self.model_id)
+                if hasattr(cfg, "add_pooling_layer"):
+                    cfg.add_pooling_layer = False
+                self._mdl = EsmModel.from_pretrained(self.model_id, config=cfg)
+            except Exception:
+                # Fallback to AutoModel if EsmModel path fails for any reason
+                self._mdl = AutoModel.from_pretrained(self.model_id)
+        else:
+            self._mdl = AutoModel.from_pretrained(self.model_id)
+
+        # Device + eval
+        self._mdl.to(self.device).eval()
+
+        if self.verbose:
+            try:
+                d = int(getattr(self._mdl.config, "hidden_size", 0))
+                if d > 0:
+                    print(f"[rescontact/ESM] Loaded OK (hidden_size={d})", flush=True)
+                else:
+                    print("[rescontact/ESM] Loaded OK", flush=True)
             except Exception:
                 print("[rescontact/ESM] Loaded OK", flush=True)
 
@@ -84,10 +113,9 @@ class ESMEmbedder:
         # Strip special tokens if present
         L = len(seq)
         if X.shape[0] >= L + 2:
-            X = X[1 : 1 + L]
+            X = X[1: 1 + L]
 
         # Always float32 (MPS prefers fp32)
         X = X.detach().to("cpu", dtype=torch.float32).numpy()
         np.savez_compressed(npz_path, h=X)
         return X
-

@@ -198,7 +198,8 @@ def main():
     pr_s  = f"{metrics['pr']:.3f}"  if not math.isnan(metrics['pr'])  else "na"
     pal_s = f"{metrics['pal']:.3f}" if not math.isnan(metrics['pal']) else "na"
     f1_s  = f"{metrics['f1']:.3f}"  if not math.isnan(metrics['f1'])  else "na"
-    print(f"[rescontact/eval] loss={metrics['loss']:.4f}  P@L={pal_s}  ROC={roc_s}  PR={pr_s}  F1={f1_s}")
+    #print(f"[rescontact/eval] loss={metrics['loss']:.4f}  P@L={pal_s}  ROC={roc_s}  PR={pr_s}  F1={f1_s}")
+    print(f"[rescontact/eval] loss={metrics['loss']:.4f}  ROC={roc_s}  PR={pr_s}  F1={f1_s}")
 
 if __name__ == "__main__":
     main()
