@@ -133,7 +133,7 @@ monitoring:
 ```
 
 4) Prepare data
-Place training structures under data/pdb/train/ and test structures under data/pdb/test/:
+- Place training structures under data/pdb/train/ and test structures under data/pdb/test/:
 
 ```bash
 data/pdb/train/106M.pdb
@@ -145,29 +145,29 @@ data/pdb/test/1BH2.pdb
 data/pdb/test/1DJA.pdb
 ...
 ```
-Ground truth is computed on the fly as 8 Å Cα–Cα distance map (symmetric, diagonal zeros).
-Multimers: both intra-chain and (if enabled) inter-chain examples are handled (monomer/dimer/multimer).
+- Ground truth is computed on the fly as 8 Å Cα–Cα distance map (symmetric, diagonal zeros).
+- Multimers: both intra-chain and (if enabled) inter-chain examples are handled (monomer/dimer/multimer).
 
-Optional local MSAs:
+- Optional local MSAs:
 
 ```bash
 data/msa/myprotein_XXXX.a3m
 ```
-v0.1 detects MSA presence; MSA feature integration is optional and budgeted.
+- v0.1 detects MSA presence; MSA feature integration is optional and budgeted.
 
 5) Train (0.8/0.2 split on train set)
 ```bash
 python scripts/train.py --config configs/rescontact.yaml
 ```
-Uses tiny ESM2; embeddings cached under .cache/rescontact
+- Uses tiny ESM2; embeddings cached under .cache/rescontact
 
-Batch size = 1 to avoid L×L padding blow-ups (M3-friendly)
+- Batch size = 1 to avoid L×L padding blow-ups (M3-friendly)
 
-Mixed precision: disabled automatically on CPU/MPS
+- Mixed precision: disabled automatically on CPU/MPS
 
-Early stopping on validation loss
+- Early stopping on validation loss
 
-Sample log:
+- Sample log:
 
 ```ini
 [epoch 3] train=0.4912  val=0.5053  P@L=0.417  ROC=0.731  F1=0.544
@@ -179,16 +179,16 @@ python scripts/eval.py \
   --ckpt checkpoints/model_best.pt \
   --split test
  ```
-Outputs JSON with P@L, ROC-AUC, F1@threshold.
+- Outputs JSON with P@L, ROC-AUC, F1@threshold.
 
 7) Inference
-A) FastAPI server (recommended)
-Start server:
+- A) FastAPI server 
+  Start server:
 
 ```bash
 uvicorn rescontact.api.server:app --host 0.0.0.0 --port 8000
 ```
-Predict from a raw sequence:
+- Predict from a raw sequence:
 
 ```bash
 curl -s -X POST http://localhost:8000/predict \
@@ -196,7 +196,7 @@ curl -s -X POST http://localhost:8000/predict \
   -d '{"sequence":"ACDEFGHIKLMNPQRSTVWY"}' \
   | jq .
 ```
-Predict from a PDB(/mmCIF) path (server derives sequence):
+- Predict from a PDB(/mmCIF) path (server derives sequence):
 
 ```bash
 curl -s -X POST http://localhost:8000/predict \
@@ -204,13 +204,13 @@ curl -s -X POST http://localhost:8000/predict \
   -d '{"pdb_path":"data/pdb/test/3def_A+B.cif","threshold":0.5}' \
   | jq .
   ```
-The response contains a base64-encoded NPZ with:
+- The response contains a base64-encoded NPZ with:
 
-probs : L×L probabilities
+- probs : L×L probabilities
 
-binary : L×L uint8 (thresholded)
+- binary : L×L uint8 (thresholded)
 
-Decode the NPZ (Python client):
+- Decode the NPZ (Python client):
 
 ```python
 import base64, io, numpy as np, requests
@@ -220,7 +220,7 @@ npz = np.load(io.BytesIO(b))
 probs, binary = npz["probs"], npz["binary"]
 print(probs.shape, binary.sum())
 ```
-Optional helper to save shapes quickly:
+- Optional helper to save shapes quickly:
 
 ```bash
 cat > check_npz.py <<'PY'
@@ -261,27 +261,27 @@ print(probs.shape, binary.sum())
 8) Monitoring (PSI drift)
 This repo includes a lightweight PSI monitor built into server.py. It tracks distributional drift between a fixed baseline and a live aggregate window.
 
-What’s monitored?
+- What’s monitored?
 seq_len: distribution of sequence lengths L
 
-prob_scores: distribution of predicted probabilities on the upper triangle of the L×L map
+- prob_scores: distribution of predicted probabilities on the upper triangle of the L×L map
 
-pos_distance: distribution of |i − j| among predicted positives (≥ threshold)
+- pos_distance: distribution of |i − j| among predicted positives (≥ threshold)
 
-emb_norms: per-residue ESM embedding norms
+- emb_norms: per-residue ESM embedding norms
 
-msa_coverage: fraction of non-zero entries in the last 21 dims (0 for ESM-only inputs)
+- msa_coverage: fraction of non-zero entries in the last 21 dims (0 for ESM-only inputs)
 
-PSI is computed against your saved baseline; the live window aggregates proportions over requests and reports a value plus a coarse category.
+- PSI is computed against your saved baseline; the live window aggregates proportions over requests and reports a value plus a coarse category.
 
-Build a baseline (once)
+- Build a baseline (once)
 ```bash
 PYTHONPATH=src python scripts/build_baseline.py \
   --config configs/rescontact.yaml \
   --out monitor/baseline.json \
   --max_examples 200
 ```
-This creates monitor/baseline.json capturing bin edges (quantile bins) and base proportions for each metric.
+- This creates monitor/baseline.json capturing bin edges (quantile bins) and base proportions for each metric.
 
 Start API
 ```bash
@@ -298,47 +298,45 @@ Inspect PSI / metrics
 curl -s http://localhost:8000/psi | jq .
 curl -s http://localhost:8000/metrics
 ```
-/psi returns JSON snapshot:
+- /psi returns JSON snapshot:
 
-values and categories for each metric
+- values and categories for each metric
 
-request/error counters
+- request/error counters
 
-latency p50/p95 (internal monitor compute)
+- latency p50/p95 (internal monitor compute)
 
-/metrics returns Prometheus-formatted text, including:
+- /metrics returns Prometheus-formatted text, including:
 
-rescontact_requests_total
+- rescontact_requests_total
 
-rescontact_errors_total
+- rescontact_errors_total
 
-rescontact_latency_ms{quantile="0.50"/"0.95"}
+- rescontact_latency_ms{quantile="0.50"/"0.95"}
 
-rescontact_psi{metric="<name>", category="<stable|slight_shift|...>"}
+- rescontact_psi{metric="<name>", category="<stable|slight_shift|...>"}
 
-Reset the live window
+- Reset the live window
 ```bash
 curl -s -X POST http://localhost:8000/admin/reset_psis
 ```
-Baseline stays; only the live aggregate is cleared.
+- Baseline stays; only the live aggregate is cleared.
 
-PSI categories (defaults)
+- PSI categories (defaults)
 Configured in YAML:
 
-psi_warn = 0.10 → stable if PSI < 0.10
+- psi_warn = 0.10 → stable if PSI < 0.10
 
-psi_alert = 0.20:
+- psi_alert = 0.20:
 
-[0.10, 0.20) → slight_shift
+  [0.10, 0.20) → slight_shift
 
-[0.20, max(2×alert, 0.5)) → moderate_shift
+  [0.20, max(2×alert, 0.5)) → moderate_shift ≥ max(2×alert, 0.5) → major_shift
 
-≥ max(2×alert, 0.5) → major_shift
+- You can tune these thresholds in configs/rescontact.yaml.
 
-You can tune these thresholds in configs/rescontact.yaml.
-
-Prometheus scrape example
-Add to your Prometheus scrape_configs:
+- Prometheus scrape example
+- Add to your Prometheus scrape_configs:
 
 ```yaml
 scrape_configs:
@@ -347,16 +345,16 @@ scrape_configs:
     static_configs:
   - targets: ["localhost:8000"]   # or your service DNS
 ```
-Use Grafana to visualize PSI over time per metric and alert on category changes.
+- Use Grafana to visualize PSI over time per metric and alert on category changes.
 
-Notes & tips
-Quantile bins (from baseline) stabilize PSI and avoid brittleness across ranges.
+- Notes & tips
+  Quantile bins (from baseline) stabilize PSI and avoid brittleness across ranges.
 
-Zeros & logs: proportions are clipped with a small ε to avoid log(0).
+- Zeros & logs: proportions are clipped with a small ε to avoid log(0).
 
-Windowing: the default window aggregates over the server lifetime (or since last reset). For sliding windows, adapt the monitor to use a ring buffer or deque of recent vectors.
+- Windowing: the default window aggregates over the server lifetime (or since last reset). For sliding windows, adapt the monitor to use a ring buffer or deque of recent vectors.
 
-Per-mode splits: if you serve both ESM and MSA models, either maintain two monitors or tag observations and split them downstream (e.g., in Prometheus labels).
+- Per-mode splits: if you serve both ESM and MSA models, either maintain two monitors or tag observations and split them downstream (e.g., in Prometheus labels).
 
 9) MSA (optional, safe fallbacks)
 Config: features.use_msa: true
