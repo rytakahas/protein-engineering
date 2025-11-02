@@ -57,8 +57,10 @@ Deliverables
   → Milestone: working E2E pipeline (CLI + FastAPI endpoints returning metrics).
 
 - Day 4 (Fri, Oct 31): 7h
-  • Metrics notebook: PR‑AUC/ROC‑AUC/Precision@L,L/2,L/5; intra vs inter. (3h)
-  • FastAPI polish + CLI flags; add request/response pydantic schemas. (2h)
+  • Hyperparameter tuning (mini‑sweep): lr, dropout_p, hidden_dim, rank r;
+    write best → configs/rescontact.tuned.yaml; study DB → sweeps/rescontact.db; runtime ≤ 90 min. (4h)
+  • Metrics notebook: PR‑AUC/ROC‑AUC(/Precision@L,L/2,L/5; intra vs inter.) (1h)
+  • FastAPI polish + CLI flags; add request/response pydantic schemas. (1h)
   • Pytest integration path; sanitize caches; profiling pass. (1h)
   • Buffer/debug. (1h)
 

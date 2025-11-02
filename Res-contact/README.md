@@ -93,26 +93,25 @@ pip install -r requirements.txt
 Note (ESM): fair-esm pulls model weights at first use. Embeddings are cached on disk.
 
 3) Configure
-Edit configs/rescontact.yaml if needed:
+- Edit configs/rescontact.yaml if needed:
 
-paths.train_dir / paths.test_dir: where PDB(/mmCIF) live
+- paths.train_dir / paths.test_dir: where PDB(/mmCIF) live
 
-labels.contact_threshold_angstrom: 8.0 by default
+- labels.contact_threshold_angstrom: 8.0 by default
 
-features.use_msa: true tries MSA; missing tools/DBs are skipped gracefully
+- features.use_msa: true tries MSA; missing tools/DBs are skipped gracefully
 
-features.msa.local_glob: pattern for local *.a3m
+- features.msa.local_glob: pattern for local *.a3m
 
-features.msa.jackhmmer / blastp: set provider params if available
+- features.msa.jackhmmer / blastp: set provider params if available
 
-model.esm_model: facebook/esm2_t6_8M_UR50D (tiny)
+- model.esm_model: facebook/esm2_t6_8M_UR50D (tiny)
 
-api: FastAPI host/port
+- api: FastAPI host/port
 
-Monitoring (PSI):
+- Monitoring (PSI):
 
 ```yaml
-Copiar código
 monitoring:
   enabled: true
   drift_method: "psi"
@@ -137,11 +136,16 @@ monitoring:
 Place training structures under data/pdb/train/ and test structures under data/pdb/test/:
 
 ```bash
-data/pdb/train/1abc_A.pdb
-data/pdb/train/2xyz.cif
-data/pdb/test/3def_A+B.cif
+data/pdb/train/106M.pdb
+data/pdb/train/109L.pdb
+data/pdb/train/111M.pdb
+..
+data/pdb/test/1BB3.pdb
+data/pdb/test/1BH2.pdb
+data/pdb/test/1DJA.pdb
+...
 ```
-Ground truth is computed on the fly as 8 Å Cβ–Cβ (Gly→Cα) distance map (symmetric, diagonal zeros).
+Ground truth is computed on the fly as 8 Å Cα–Cα distance map (symmetric, diagonal zeros).
 Multimers: both intra-chain and (if enabled) inter-chain examples are handled (monomer/dimer/multimer).
 
 Optional local MSAs:
@@ -482,6 +486,16 @@ PYTHONPATH=src python scripts/build_baseline.py \
 curl -s -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d '{"sequence":"ACDEFGHIKLMNPQRSTVWY"}' | jq .
+
+# fasta file
+curl -s -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"fasta_path":"data/fasta/demo.fasta"}' | jq .
+
+# pdb file
+curl -s -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"pdb_path":"data/pdb/test/1BB3.pdb"}' | jq . 
 
 # inspect PSI and metrics
 curl -s http://localhost:8000/psi | jq .
