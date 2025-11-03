@@ -260,7 +260,7 @@ print(probs.shape, binary.sum())
 #### 7) Monitoring (PSI drift) — **Batch only (current)** 
 This repo currently ships **batch** monitoring scripts (no live server endpoints in this version of `server.py`).
 
-### What’s monitored
+##### What’s monitored
 - `seq_len` — distribution of sequence lengths `L`
 - `prob_scores` — distribution of predicted probabilities on the masked upper triangle (i<j)
 - `pos_distance` — distribution of `|i−j|` among **predicted positives** (≥ threshold)
@@ -316,7 +316,8 @@ mkdir -p src/rescontact/api && chmod u+w src/rescontact/api
   - Model tensor shape issues:
   Serving path accepts both [L,D] and [1,L,D]. The API’s model wrapper avoids .t() on 3-D tensors.
 ---
-#### 11) Config example
+#### 11) Run end-to-end quickstart
+ Config example
 ```yaml
 labels:
   contact_threshold_angstrom: 8.0
@@ -367,8 +368,6 @@ monitoring:
   psi_alert: 0.20
   baseline_path: monitor/baseline.json
 ```
----
-#### 12) Run end-to-end quickstart
 0) setup
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -418,7 +417,7 @@ curl -s -X POST http://localhost:8000/predict \
 
 ```
 ---
-#### 13) Production notes
+#### 12) Production notes
 
   - Online inference: serve ESM-only; use MSA only if precomputed features exist
 
