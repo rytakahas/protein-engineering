@@ -450,4 +450,4 @@ curl -s -X POST http://localhost:8000/predict \
 
   - Streaming trainer (future): O(P) per step (all positives + sampled negatives); enable via config.
 
-  - **Extensibility:** Containerize with Docker (expose :8000) and deploy to **Cloud Run** (or Vertex AI/SageMaker/Azure ML/Kubernetes).
+  - **Extensibility:** Containerize with Docker and deploy to **Cloud Run** (or Vertex AI/SageMaker/Azure ML/Kubernetes).

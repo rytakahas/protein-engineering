@@ -66,8 +66,8 @@ Deliverables
   • Buffer/debug. (1h)
 
 - Day 5 (Sat, Nov 01): 8h
-  • Local load test (hey/ab) and Prometheus scrape for /metrics; verify PSI categories. (6h)
-  • README updates: container run examples and curl/requests snippets. (2h)
+  • Local batch drift check: run scripts/build_baseline.py; produce reports/psi_*.json and score_*.png; review PSI categories. (6h)
+  • README updates: add curl examples for /predict (no container section yet). (2h)
 
 - Day 6 (Sun, Nov 02): 8h
   • Monitoring baseline & drift: run scripts/build_baseline.py; save monitor/baseline.json. (2.5h)
