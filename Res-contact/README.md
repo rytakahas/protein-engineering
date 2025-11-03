@@ -92,7 +92,7 @@ pip install -r requirements.txt
 ```
 Note (ESM): fair-esm pulls model weights at first use. Embeddings are cached on disk.
 
-3) Configure
+#### 3) Configure
 - Edit configs/rescontact.yaml if needed:
 
 - paths.train_dir / paths.test_dir: where PDB(/mmCIF) live
@@ -132,7 +132,7 @@ monitoring:
       kind: "numeric"
 ```
 
-4) Prepare data
+#### 4) Prepare data
 - Place training structures under data/pdb/train/ and test structures under data/pdb/test/:
 
 ```bash
@@ -155,7 +155,7 @@ data/msa/myprotein_XXXX.a3m
 ```
   - v0.1 detects MSA presence; MSA feature integration is optional and budgeted.
 
-5) Train (0.8/0.2 split on train set)
+#### 5) Train (0.8/0.2 split on train set)
 ```bash
 python scripts/train.py --config configs/rescontact.yaml
 ```
@@ -181,7 +181,7 @@ python scripts/eval.py \
  ```
   - Outputs JSON with P@L, ROC-AUC, F1@threshold.
 
-7) Inference
+#### 6) Inference
   - A) FastAPI server 
   Start server:
 
@@ -258,7 +258,7 @@ binary = (probs >= 0.5).astype(np.uint8)
 print(probs.shape, binary.sum())
 ```
 
-8) Monitoring (PSI drift) — **Batch only (current)** 
+#### 7) Monitoring (PSI drift) — **Batch only (current)** 
 This repo currently ships **batch** monitoring scripts (no live server endpoints in this version of `server.py`).
 
 ### What’s monitored
@@ -272,7 +272,7 @@ PSI is computed vs a **fixed baseline** using quantile bins.
 Thresholds (configurable in `configs/rescontact.yaml`):
 - **PSI ≤ 0.10 = stable**, **0.10–0.25 = slight shift**, **0.25–0.50 = moderate shift**, **> 0.50 = major shift**.
 
-### 1) Build a baseline (once)
+1) Build a baseline (once)
 ```bash
 PYTHONPATH=src python scripts/build_baseline.py \
   --config configs/rescontact.yaml \
@@ -280,7 +280,7 @@ PYTHONPATH=src python scripts/build_baseline.py \
   --max_examples 200
 ```
 
-9) MSA (optional, safe fallbacks)
+#### 8) MSA (optional, safe fallbacks)
   - Config: features.use_msa: true
   Order: local .a3m → jackhmmer → blastp → skip
   
@@ -292,7 +292,7 @@ PYTHONPATH=src python scripts/build_baseline.py \
   
   - For real-time serving, keep ESM-only by default; use precomputed MSA features for batch/scoring pipelines.
 
-10) Mac M3 tips (8 GB)
+#### 9) Mac M3 tips (8 GB)
   - Keep training.batch_size = 1 (default)
 
   - Use tiny ESM2 (esm2_t6_8M_UR50D)
@@ -303,7 +303,7 @@ PYTHONPATH=src python scripts/build_baseline.py \
 
   - If you see MPS oddities, set training.mixed_precision: false in YAML
 
-11) Troubleshooting
+#### 10) Troubleshooting
 “Vim E212: Can't open file for writing”
 Create folders and ensure write perms:
 
@@ -317,7 +317,7 @@ mkdir -p src/rescontact/api && chmod u+w src/rescontact/api
   - Model tensor shape issues:
   Serving path accepts both [L,D] and [1,L,D]. The API’s model wrapper avoids .t() on 3-D tensors.
 
-12) Config example
+#### 11) Config example
 ```yaml
 labels:
   contact_threshold_angstrom: 8.0
@@ -368,7 +368,7 @@ monitoring:
   psi_alert: 0.20
   baseline_path: monitor/baseline.json
 ```
-13) Run end-to-end quickstart
+#### 12) Run end-to-end quickstart
 0) setup
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -417,7 +417,7 @@ curl -s -X POST http://localhost:8000/predict \
   -d '{"pdb_path":"data/pdb/test/1BB3.pdb"}' | jq . 
 
 ```
-14) Production notes
+#### 13) Production notes
 
   - Online inference: serve ESM-only; use MSA only if precomputed features exist
 
