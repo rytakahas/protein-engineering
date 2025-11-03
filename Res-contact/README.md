@@ -12,42 +12,54 @@ MSA is optional with graceful fallbacks: local → jackhmmer → blastp → skip
 #### 1) Repo layout
 
 ```
-├─ configs/
-│ └─ rescontact.yaml # all config (paths, model, training, api, msa, monitoring)
-├─ monitor/
-│ └─ baseline.json # (generated) PSI baseline (bin edges + base proportions)
-├─ scripts/
-│ ├─ train.py # train on data/pdb/train (splits 0.8/0.2)
-│ ├─ eval.py # evaluate on data/pdb/test (or train)
-│ └─ build_baseline.py # build PSI baseline (seq_len, prob_scores, etc.)
-├─ src/rescontact/
-│ ├─ init.py
-│ ├─ api/
-│ │ ├─ init.py
-│ │ └─ server.py # FastAPI server (/predict, /visualize, /psi, /metrics, /admin/reset_psis)
-│ ├─ data/
-│ │ ├─ init.py
-│ │ ├─ dataset.py # PDB→labels, ESM cache, MSA path detection
-│ │ └─ pdb_utils.py # PDB/mmCIF parsing, 8Å contact labels
-│ ├─ features/
-│ │ ├─ init.py
-│ │ ├─ embedding.py # tiny ESM2 embeddings (+disk cache)
-│ │ ├─ msa.py # MSA fallbacks (local/jackhmmer/blastp/skip)
-│ │ └─ pair_features.py # (placeholder) distance buckets, etc.
-│ ├─ models/
-│ │ ├─ init.py
-│ │ └─ contact_net.py # bilinear scoring + distance bias
-│ └─ utils/
-│ ├─ init.py
-│ ├─ metrics.py # P@L, ROC-AUC, F1
-│ └─ train.py # device, seeding, early stop, ckpt I/O
-├─ tests/ # minimal smoke tests
-│ ├─ test_msa_providers_mock.py
-│ ├─ test_pair_features.py
-│ ├─ test_pdb_utils.py
-│ └─ test_train_smoke.py
-├─ requirements.txt
-└─ roadmap.txt
+├── README.md
+├── configs
+│   └── rescontact.yaml
+├── notebooks
+│   ├── res_contact_workflow.ipynb
+│   └── visualization.ipynb
+├── optuna_sweep.py
+├── pyproject.toml
+├── requirements.txt
+├── roadmap.txt
+├── scripts
+│   ├── build_baseline.py
+│   ├── check_msa.py
+│   ├── check_msa_blastp.py
+│   ├── eval.py
+│   ├── train.py
+│   └── train_stream.py
+├── src
+│   └── rescontact
+│       ├── __init__.py
+│       ├── api
+│       │   ├── __init__.py
+│       │   └── server.py
+│       ├── data
+│       │   ├── __init__.py
+│       │   ├── dataset.py
+│       │   └── pdb_utils.py
+│       ├── features
+│       │   ├── __init__.py
+│       │   ├── embedding.py
+│       │   ├── msa.py
+│       │   └── pair_features.py
+│       ├── models
+│       │   ├── __init__.py
+│       │   ├── bilinear_scorer.py
+│       │   └── contact_net.py
+│       └── utils
+│           ├── __init__.py
+│           ├── metrics.py
+│           ├── psi.py
+│           └── train.py
+└── tests
+    ├── conftest.py
+    ├── test_bilinear_scorer.py
+    ├── test_msa_providers_mock.py
+    ├── test_pair_features.py
+    ├── test_pdb_utils.py
+    └── test_train_smoke.py
 ```
 
 #### Data folders (you create them)
