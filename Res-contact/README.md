@@ -446,7 +446,7 @@ curl -s -X POST http://localhost:8000/predict \
 
   - Cache hygiene: maintain separate caches .cache/rescontact_esm/ vs .cache/rescontact_msa/; add LRU/TTL cleanup
 
-  - Observability: expose /psi, /metrics, /admin/reset_psis; scrape /metrics with Prometheus and alert on PSI category/value.
+  - Observability: expose /psi, /metrics, /admin/reset_psis; scrape /metrics with Prometheus and alert on PSI category/value. 
 
   - Streaming trainer (future): O(P) per step (all positives + sampled negatives); enable via config.
 

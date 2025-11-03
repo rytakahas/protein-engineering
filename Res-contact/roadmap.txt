@@ -31,7 +31,7 @@ Post‑processing (finish by end of Day 3 for E2E demo)
 - Visualization: heatmaps of P and Ŷ with mask/diag handling.
  
 
-Training (O(P) Low‑Rank Bilinear)
+Training (Bilinear head)
 - Per chain compute A=HU and B=HV once (O(L·d·r)).
 
 - BCEWithLogitsLoss; AdamW(lr=1e‑3); r∈{64,96,128}; gradient clip optional; seed=42.
@@ -70,9 +70,8 @@ Deliverables
   • README updates: add curl examples for /predict (no container section yet). (2h)
 
 - Day 6 (Sun, Nov 02): 8h
-  • Monitoring baseline & drift: run scripts/build_baseline.py; save monitor/baseline.json. (2.5h)
-  • Optional MSA ablation scaffolding (budgeted providers, dry‑run); record budgets in config. (3h)
-  • Release prep: changelog, version bump to v0.1.0‑rc, checklist for QA. (2.5h)
+  • Monitoring baseline & drift: run scripts/build_baseline.py; save monitor/baseline.json. (3h)
+  • Optional MSA ablation scaffolding (budgeted providers, dry‑run); record budgets in config. (5h)
 
 - Day 7 (Mon, Nov 03): 6h
   • Packaging + README polish + examples; monitoring notebook final pass. (4h)
