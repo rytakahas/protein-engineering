@@ -258,9 +258,7 @@ binary = (probs >= 0.5).astype(np.uint8)
 print(probs.shape, binary.sum())
 ```
 
-8) Monitoring (PSI drift)
-## 8) Monitoring (PSI drift) — **Batch only (current)**
-
+8) Monitoring (PSI drift) — **Batch only (current)** 
 This repo currently ships **batch** monitoring scripts (no live server endpoints in this version of `server.py`).
 
 ### What’s monitored
