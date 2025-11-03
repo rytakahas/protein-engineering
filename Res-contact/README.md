@@ -88,7 +88,8 @@ Install remaining deps:
 ```bash
 pip install -r requirements.txt
 ```
-Note (ESM): fair-esm pulls model weights at first use. Embeddings are cached on disk.
+  Note (ESM): fair-esm pulls model weights at first use. Embeddings are cached on disk.
+
 ---
 #### 3) Configure
 - Edit configs/rescontact.yaml if needed:
