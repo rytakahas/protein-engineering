@@ -15,6 +15,13 @@ MSA is optional with graceful fallbacks: local → jackhmmer → blastp → skip
 ├── README.md
 ├── configs
 │   └── rescontact.yaml
+├── data
+│   ├── fasta
+│   │   └── demo.fasta
+│   ├── msa
+│   └── pdb
+│       ├── test
+│       └── train
 ├── notebooks
 │   ├── res_contact_workflow.ipynb
 │   └── visualization.ipynb
@@ -53,13 +60,13 @@ MSA is optional with graceful fallbacks: local → jackhmmer → blastp → skip
 │           ├── metrics.py
 │           ├── psi.py
 │           └── train.py
-└── tests
-    ├── conftest.py
-    ├── test_bilinear_scorer.py
-    ├── test_msa_providers_mock.py
-    ├── test_pair_features.py
-    ├── test_pdb_utils.py
-    └── test_train_smoke.py
+├── tests
+│   ├── conftest.py
+│   ├── test_bilinear_scorer.py
+│   ├── test_msa_providers_mock.py
+│   ├── test_pair_features.py
+│   ├── test_pdb_utils.py
+│   └── test_train_smoke.py
 ```
 
 #### Data folders (you create them)
