@@ -9,7 +9,7 @@ Constraints & Defaults (kept)
 - Device: Prefer Apple MPS (fallback CPU). Clear cache between chains; call torch.mps.synchronize() when helpful.
 - Model: ESM2 t6_8M (d=320). Cache per‑sequence embeddings to .cache/rescontact as .npz.
 - MSA: OFF by default. Optional budgeted Jackhmmer/BLAST with caps (TOTAL_QUERY_BUDGET, TIMEOUT_S, MAX_SEQS). If budgets fail → continue ESM‑only.
-- Memory: Never build full L×L during training; sample pairs (all positives + random negatives).
+- Memory: Default trainer computes on the full upper-triangle (L×L). To reduce memory/time, you can enable the optional streaming sampler (when used).
 - Complexity: Low‑rank bilinear scorer with O(P·r), r in [64, 128].
 - Long sequences: cap MAX_LEN_PER_CHAIN=600.
 
@@ -20,19 +20,21 @@ Pre‑processing (finish by end of Day 2)
 4) Labels: Y[i,j]=1 if Cα–Cα < 8.0Å (upper triangle for metrics; symmetric if configured).
 5) Embeddings: ESM2 hidden states H∈ℝ^{L×320} → cache.
 6) (Optional) MSA→PSSM: if enabled and budget allows, append 21 dims; else zeros for that block.
-7) Pair sampling (training): collect all positives + NEG_RATIO random negatives per positive.
+7) Pair sampling (training): collect all positives + a small random sample of negatives per positive (only if the streaming trainer is enabled).
 
 Post‑processing (finish by end of Day 3 for E2E demo)
 - Probabilities: P = sigmoid(logits).
 - Symmetry & masking: (optional) P ← 0.5·(P + Pᵀ); zero diagonal; apply M.
 - Thresholding: choose τ (default 0.5 or F1‑optimal on validation). Final binary map: Ŷ = (P≥τ) ∧ M.
 - Metrics (no long‑range split): PR‑AUC, ROC‑AUC, F1 on masked upper triangle; also report intra vs inter if multimer.
+- Monitoring & drift (PSI): Compute PSI on predicted probabilities over the masked upper triangle (train→val, train→test) with thresholds ≤0.10 stable, 0.10–0.25 watch, >0.25 drift; persist baseline bins in baseline.json and per-run outputs in reports/ (psi_<split>_<timestamp>.json, score_*.png, length_*.png, sep_*.png)
 - Visualization: heatmaps of P and Ŷ with mask/diag handling.
+ 
 
 Training (O(P) Low‑Rank Bilinear)
 - Per chain compute A=HU and B=HV once (O(L·d·r)).
-- For sampled set P (all positives + k× negatives), score via r‑dim inner products (O(P·r)).
-- BCEWithLogitsLoss; AdamW(lr=1e‑3); r∈{64,96,128}; NEG_RATIO≈3; gradient clip optional; seed=42.
+
+- BCEWithLogitsLoss; AdamW(lr=1e‑3); r∈{64,96,128}; gradient clip optional; seed=42.
 
 Deliverables
 - CLI: scripts/train.py, scripts/eval.py (flags for ranks, sampling, inter‑chain, MSA budgets).
@@ -56,33 +58,29 @@ Deliverables
   • Quick validation run; store metrics.jsonl; add tests for sampler and shapes. (2h)
   → Milestone: working E2E pipeline (CLI + FastAPI endpoints returning metrics).
 
-- Day 4 (Fri, Oct 31): 7h
-  • Hyperparameter tuning (mini‑sweep): lr, dropout_p, hidden_dim, rank r;
-    write best → configs/rescontact.tuned.yaml; study DB → sweeps/rescontact.db; runtime ≤ 90 min. (4h)
-  • Metrics notebook: PR‑AUC/ROC‑AUC(/Precision@L,L/2,L/5; intra vs inter.) (1h)
+- Day 4 (Fri, Oct 31): 8h
+  • Hyperparameter tuning (mini-sweep): lr, dropout_p, hidden_dim, rank r (3h)
+  • Metrics notebook: PR‑AUC/ROC‑AUC; intra vs inter. (2h)
   • FastAPI polish + CLI flags; add request/response pydantic schemas. (1h)
   • Pytest integration path; sanitize caches; profiling pass. (1h)
   • Buffer/debug. (1h)
 
-- Day 5 (Sat, Nov 01): 5h
-  • Containerization: Dockerfile (uvicorn, /health, /metrics), Makefile targets (build/run/push). (2h)
-  • Local load test (hey/ab) and Prometheus scrape for /metrics; verify PSI categories. (2h)
-  • README updates: container run examples and curl/requests snippets. (1h)
+- Day 5 (Sat, Nov 01): 8h
+  • Local load test (hey/ab) and Prometheus scrape for /metrics; verify PSI categories. (6h)
+  • README updates: container run examples and curl/requests snippets. (2h)
 
-- Day 6 (Sun, Nov 02): 4h
-  • Monitoring baseline & drift: run scripts/build_baseline.py; save monitor/baseline.json. (1.5h)
-  • Optional MSA ablation scaffolding (budgeted providers, dry‑run); record budgets in config. (1h)
-  • Release prep: changelog, version bump to v0.1.0‑rc, checklist for QA. (1.5h)
+- Day 6 (Sun, Nov 02): 8h
+  • Monitoring baseline & drift: run scripts/build_baseline.py; save monitor/baseline.json. (2.5h)
+  • Optional MSA ablation scaffolding (budgeted providers, dry‑run); record budgets in config. (3h)
+  • Release prep: changelog, version bump to v0.1.0‑rc, checklist for QA. (2.5h)
 
-- Day 7 (Mon, Nov 03): 7h
+- Day 7 (Mon, Nov 03): 6h
   • Packaging + README polish + examples; monitoring notebook final pass. (4h)
-  • Optional MSA ablation with strict budgets; inter‑chain toggle sanity. (2h)
-  • Final QA + sign‑off; tag v0.1.0‑rc. (1h)
+  • Final checks. (2h)
 
 Hours Summary
-- Total (ESM2‑only): 47h (8/8/8/7/5/4/7). Optional MSA fits in Day 6–7 budget.
+- Total (ESM2‑only): 54h (8/8/8/8/8/8/6). Optional MSA fits in Day 6–7 budget.
 
 Tracking notes
-- NEG_RATIO, rank r, and TRAIN_BATCH_PAIRS are surfaced as flags and recorded in metrics.jsonl.
+- rank r, and TRAIN_BATCH_PAIRS are surfaced as flags and recorded in metrics.jsonl.
 - Cache keys include model id + sequence hash + crop settings for determinism.
-- No full L×L tensors in training; all positives + sampled negatives only.

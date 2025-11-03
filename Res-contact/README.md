@@ -3,7 +3,7 @@
 
 End-to-end pipeline for protein contact map prediction.
 
-It builds 8 Å ground-truth (Cα–Cα) from PDB/mmCIF, embeds sequences with tiny ESM2, trains a bilinear distance-biased model, and serves predictions via FastAPI.
+It builds 8 Å ground-truth (Cα–Cα) from PDB/mmCIF, embeds sequences with (tiny) ESM2, trains a bilinear distance-biased model, and serves predictions via FastAPI.
 
 MSA is optional with graceful fallbacks: local → jackhmmer → blastp → skip.
 
@@ -55,8 +55,8 @@ MSA is optional with graceful fallbacks: local → jackhmmer → blastp → skip
 ```
 data/
 ├─ pdb/
-│ ├─ train/ # *.pdb or *.cif or *.mmCIF
-│ └─ test/ # *.pdb or *.cif or *.mmCIF
+│ ├─ train/ # *.pdb (or *.cif or *.mmCIF)
+│ └─ test/ # *.pdb (or *.cif or *.mmCIF)
 └─ msa/
 └─ ... # optional local *.a3m files (matched by glob in config)
 ```
@@ -201,7 +201,7 @@ curl -s -X POST http://localhost:8000/predict \
 ```bash
 curl -s -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
-  -d '{"pdb_path":"data/pdb/test/3def_A+B.cif","threshold":0.5}' \
+  -d '{"pdb_path":"data/pdb/test/3A4Z.pdb","threshold":0.5}' \
   | jq .
   ```
   - The response contains a base64-encoded NPZ with:
@@ -259,102 +259,28 @@ print(probs.shape, binary.sum())
 ```
 
 8) Monitoring (PSI drift)
-This repo includes a lightweight PSI monitor built into server.py. It tracks distributional drift between a fixed baseline and a live aggregate window.
+## 8) Monitoring (PSI drift) — **Batch only (current)**
 
-  - What’s monitored?
-  seq_len: distribution of sequence lengths L
+This repo currently ships **batch** monitoring scripts (no live server endpoints in this version of `server.py`).
 
-  - prob_scores: distribution of predicted probabilities on the upper triangle of the L×L map
+### What’s monitored
+- `seq_len` — distribution of sequence lengths `L`
+- `prob_scores` — distribution of predicted probabilities on the masked upper triangle (i<j)
+- `pos_distance` — distribution of `|i−j|` among **predicted positives** (≥ threshold)
+- `emb_norms` — per-residue ESM embedding norms
+- `msa_coverage` — fraction of non-zero entries in the last 21 dims (0 for ESM-only inputs)
 
-  - pos_distance: distribution of |i − j| among predicted positives (≥ threshold)
+PSI is computed vs a **fixed baseline** using quantile bins.
+Thresholds (configurable in `configs/rescontact.yaml`):
+- **PSI ≤ 0.10 = stable**, **0.10–0.25 = slight shift**, **0.25–0.50 = moderate shift**, **> 0.50 = major shift**.
 
-  - emb_norms: per-residue ESM embedding norms
-
-  - msa_coverage: fraction of non-zero entries in the last 21 dims (0 for ESM-only inputs)
-
-  - PSI is computed against your saved baseline; the live window aggregates proportions over requests and reports a value plus a coarse category.
-
-  - Build a baseline (once)
+### 1) Build a baseline (once)
 ```bash
 PYTHONPATH=src python scripts/build_baseline.py \
   --config configs/rescontact.yaml \
   --out monitor/baseline.json \
   --max_examples 200
 ```
-  - This creates monitor/baseline.json capturing bin edges (quantile bins) and base proportions for each metric.
-
-Start API
-```bash
-uvicorn rescontact.api.server:app --host 0.0.0.0 --port 8000
-```
-Generate traffic
-```bash
-curl -s -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"sequence":"ACDEFGHIKLMNPQRSTVWY"}' | jq .
-```
-Inspect PSI / metrics
-```bash
-curl -s http://localhost:8000/psi | jq .
-curl -s http://localhost:8000/metrics
-```
-  - /psi returns JSON snapshot:
-
-  - values and categories for each metric
-
-  - request/error counters
-
-  - latency p50/p95 (internal monitor compute)
-
-  - /metrics returns Prometheus-formatted text, including:
-
-  - rescontact_requests_total
-
-  - rescontact_errors_total
-
-  - rescontact_latency_ms{quantile="0.50"/"0.95"}
-
-  - rescontact_psi{metric="<name>", category="<stable|slight_shift|...>"}
-
-  - Reset the live window
-```bash
-curl -s -X POST http://localhost:8000/admin/reset_psis
-```
-  - Baseline stays; only the live aggregate is cleared.
-
-  - PSI categories (defaults)
-  Configured in YAML:
-
-  - psi_warn = 0.10 → stable if PSI < 0.10
-
-  - psi_alert = 0.20:
-
-    [0.10, 0.20) → slight_shift
-
-    [0.20, max(2×alert, 0.5)) → moderate_shift ≥ max(2×alert, 0.5) → major_shift
-
-  - You can tune these thresholds in configs/rescontact.yaml.
-
-  - Prometheus scrape example
-  - Add to your Prometheus scrape_configs:
-
-```yaml
-scrape_configs:
-  - job_name: rescontact
-    metrics_path: /metrics
-    static_configs:
-  - targets: ["localhost:8000"]   # or your service DNS
-```
-  - Use Grafana to visualize PSI over time per metric and alert on category changes.
-
-  - Notes & tips
-    Quantile bins (from baseline) stabilize PSI and avoid brittleness across ranges.
-
-  - Zeros & logs: proportions are clipped with a small ε to avoid log(0).
-
-  - Windowing: the default window aggregates over the server lifetime (or since last reset). For sliding windows, adapt the monitor to use a ring buffer or deque of recent vectors.
-
-  - Per-mode splits: if you serve both ESM and MSA models, either maintain two monitors or tag observations and split them downstream (e.g., in Prometheus labels).
 
 9) MSA (optional, safe fallbacks)
   - Config: features.use_msa: true
@@ -370,13 +296,13 @@ scrape_configs:
 
 10) Mac M3 tips (8 GB)
   - Keep training.batch_size = 1 (default)
-  
+
   - Use tiny ESM2 (esm2_t6_8M_UR50D)
-  
+
   - Inter-chain contacts increase L; if memory is tight, set labels.include_inter_chain: false
-  
+
   - Embeddings are cached; subsequent runs are much lighter
-  
+
   - If you see MPS oddities, set training.mixed_precision: false in YAML
 
 11) Troubleshooting
@@ -393,10 +319,7 @@ mkdir -p src/rescontact/api && chmod u+w src/rescontact/api
   - Model tensor shape issues:
   Serving path accepts both [L,D] and [1,L,D]. The API’s model wrapper avoids .t() on 3-D tensors.
 
-  - PSI shows “major_shift” for pos_distance on toy runs:
-That’s expected on very small or synthetic sequences; build the baseline from representative data.
-
-12) Config cheat-sheet
+12) Config example
 ```yaml
 labels:
   contact_threshold_angstrom: 8.0
@@ -495,12 +418,6 @@ curl -s -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d '{"pdb_path":"data/pdb/test/1BB3.pdb"}' | jq . 
 
-# inspect PSI and metrics
-curl -s http://localhost:8000/psi | jq .
-curl -s http://localhost:8000/metrics
-
-# reset live window
-curl -s -X POST http://localhost:8000/admin/reset_psis
 ```
 14) Production notes
 
@@ -513,5 +430,9 @@ curl -s -X POST http://localhost:8000/admin/reset_psis
   - Cache hygiene: maintain separate caches .cache/rescontact_esm/ vs .cache/rescontact_msa/; add LRU/TTL cleanup
 
   - Observability: scrape /metrics with Prometheus; alert on PSI category or value
+
+  - Observability: expose /psi, /metrics, /admin/reset_psis; scrape /metrics with Prometheus and alert on PSI category/value.
+
+  - Streaming trainer (future): O(P) per step (all positives + sampled negatives); enable via config.
 
   - **Extensibility:** Containerize with Docker (expose :8000) and deploy to **Cloud Run** (or Vertex AI/SageMaker/Azure ML/Kubernetes).
