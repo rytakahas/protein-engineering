@@ -388,11 +388,11 @@ python scripts/train.py --config configs/rescontact.yaml
 ```bash
 python scripts/eval.py --config configs/rescontact.yaml --ckpt checkpoints/model_best.pt --split test
 ```
- 4a. serve API
+4) serve API
 ```bash
 uvicorn rescontact.api.server:app --host 0.0.0.0 --port 8000
 ```
- 4b. monitor (PSI)
+5) monitor (PSI)
 ```bash
 # build baseline once
 PYTHONPATH=src python scripts/build_baseline.py \
