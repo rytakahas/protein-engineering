@@ -1,0 +1,521 @@
+HEADER    GROWTH FACTOR                           08-OCT-93   1POS              
+TITLE     CRYSTAL STRUCTURE OF A NOVEL DISULFIDE-LINKED "TREFOIL" MOTIF FOUND IN
+TITLE    2 A LARGE FAMILY OF PUTATIVE GROWTH FACTORS                            
+COMPND    MOL_ID: 1;                                                            
+COMPND   2 MOLECULE: PORCINE PANCREATIC SPASMOLYTIC POLYPEPTIDE;                
+COMPND   3 CHAIN: A, B;                                                         
+COMPND   4 ENGINEERED: YES                                                      
+SOURCE    MOL_ID: 1;                                                            
+SOURCE   2 ORGANISM_SCIENTIFIC: SUS SCROFA;                                     
+SOURCE   3 ORGANISM_COMMON: PIG;                                                
+SOURCE   4 ORGANISM_TAXID: 9823                                                 
+KEYWDS    GROWTH FACTOR                                                         
+EXPDTA    X-RAY DIFFRACTION                                                     
+MDLTYP    CA ATOMS ONLY, CHAIN A, B                                             
+AUTHOR    A.DE,D.BROWN,M.GORMAN,M.CARR,M.R.SANDERSON,P.S.FREEMONT               
+REVDAT   6   23-OCT-24 1POS    1       REMARK                                   
+REVDAT   5   14-FEB-24 1POS    1       REMARK                                   
+REVDAT   4   25-DEC-19 1POS    1       SEQADV SEQRES                            
+REVDAT   3   29-NOV-17 1POS    1       HELIX                                    
+REVDAT   2   24-FEB-09 1POS    1       VERSN                                    
+REVDAT   1   31-JAN-94 1POS    0                                                
+JRNL        AUTH   A.DE,D.G.BROWN,M.A.GORMAN,M.CARR,M.R.SANDERSON,P.S.FREEMONT  
+JRNL        TITL   CRYSTAL STRUCTURE OF A DISULFIDE-LINKED "TREFOIL" MOTIF      
+JRNL        TITL 2 FOUND IN A LARGE FAMILY OF PUTATIVE GROWTH FACTORS.          
+JRNL        REF    PROC.NATL.ACAD.SCI.USA        V.  91  1084 1994              
+JRNL        REFN                   ISSN 0027-8424                               
+JRNL        PMID   8302836                                                      
+JRNL        DOI    10.1073/PNAS.91.3.1084                                       
+REMARK   1                                                                      
+REMARK   1 REFERENCE 1                                                          
+REMARK   1  AUTH   M.A.GORMAN,A.DE,P.S.FREEMONT                                 
+REMARK   1  TITL   CRYSTALLIZATION AND PRELIMINARY X-RAY DIFFRACTION STUDIES OF 
+REMARK   1  TITL 2 PANCREATIC SPASMOLYTIC POLYPEPTIDE                           
+REMARK   1  REF    J.MOL.BIOL.                   V. 228   991 1992              
+REMARK   1  REFN                   ISSN 0022-2836                               
+REMARK   2                                                                      
+REMARK   2 RESOLUTION.    2.60 ANGSTROMS.                                       
+REMARK   3                                                                      
+REMARK   3 REFINEMENT.                                                          
+REMARK   3   PROGRAM     : X-PLOR                                               
+REMARK   3   AUTHORS     : BRUNGER                                              
+REMARK   3                                                                      
+REMARK   3  DATA USED IN REFINEMENT.                                            
+REMARK   3   RESOLUTION RANGE HIGH (ANGSTROMS) : 2.60                           
+REMARK   3   RESOLUTION RANGE LOW  (ANGSTROMS) : NULL                           
+REMARK   3   DATA CUTOFF            (SIGMA(F)) : NULL                           
+REMARK   3   DATA CUTOFF HIGH         (ABS(F)) : NULL                           
+REMARK   3   DATA CUTOFF LOW          (ABS(F)) : NULL                           
+REMARK   3   COMPLETENESS (WORKING+TEST)   (%) : NULL                           
+REMARK   3   NUMBER OF REFLECTIONS             : NULL                           
+REMARK   3                                                                      
+REMARK   3  FIT TO DATA USED IN REFINEMENT.                                     
+REMARK   3   CROSS-VALIDATION METHOD          : NULL                            
+REMARK   3   FREE R VALUE TEST SET SELECTION  : NULL                            
+REMARK   3   R VALUE            (WORKING SET) : 0.219                           
+REMARK   3   FREE R VALUE                     : NULL                            
+REMARK   3   FREE R VALUE TEST SET SIZE   (%) : NULL                            
+REMARK   3   FREE R VALUE TEST SET COUNT      : NULL                            
+REMARK   3   ESTIMATED ERROR OF FREE R VALUE  : NULL                            
+REMARK   3                                                                      
+REMARK   3  FIT IN THE HIGHEST RESOLUTION BIN.                                  
+REMARK   3   TOTAL NUMBER OF BINS USED           : NULL                         
+REMARK   3   BIN RESOLUTION RANGE HIGH       (A) : NULL                         
+REMARK   3   BIN RESOLUTION RANGE LOW        (A) : NULL                         
+REMARK   3   BIN COMPLETENESS (WORKING+TEST) (%) : NULL                         
+REMARK   3   REFLECTIONS IN BIN    (WORKING SET) : NULL                         
+REMARK   3   BIN R VALUE           (WORKING SET) : NULL                         
+REMARK   3   BIN FREE R VALUE                    : NULL                         
+REMARK   3   BIN FREE R VALUE TEST SET SIZE  (%) : NULL                         
+REMARK   3   BIN FREE R VALUE TEST SET COUNT     : NULL                         
+REMARK   3   ESTIMATED ERROR OF BIN FREE R VALUE : NULL                         
+REMARK   3                                                                      
+REMARK   3  NUMBER OF NON-HYDROGEN ATOMS USED IN REFINEMENT.                    
+REMARK   3   PROTEIN ATOMS            : 212                                     
+REMARK   3   NUCLEIC ACID ATOMS       : 0                                       
+REMARK   3   HETEROGEN ATOMS          : 0                                       
+REMARK   3   SOLVENT ATOMS            : 0                                       
+REMARK   3                                                                      
+REMARK   3  B VALUES.                                                           
+REMARK   3   FROM WILSON PLOT           (A**2) : NULL                           
+REMARK   3   MEAN B VALUE      (OVERALL, A**2) : NULL                           
+REMARK   3   OVERALL ANISOTROPIC B VALUE.                                       
+REMARK   3    B11 (A**2) : NULL                                                 
+REMARK   3    B22 (A**2) : NULL                                                 
+REMARK   3    B33 (A**2) : NULL                                                 
+REMARK   3    B12 (A**2) : NULL                                                 
+REMARK   3    B13 (A**2) : NULL                                                 
+REMARK   3    B23 (A**2) : NULL                                                 
+REMARK   3                                                                      
+REMARK   3  ESTIMATED COORDINATE ERROR.                                         
+REMARK   3   ESD FROM LUZZATI PLOT        (A) : NULL                            
+REMARK   3   ESD FROM SIGMAA              (A) : NULL                            
+REMARK   3   LOW RESOLUTION CUTOFF        (A) : NULL                            
+REMARK   3                                                                      
+REMARK   3  CROSS-VALIDATED ESTIMATED COORDINATE ERROR.                         
+REMARK   3   ESD FROM C-V LUZZATI PLOT    (A) : NULL                            
+REMARK   3   ESD FROM C-V SIGMAA          (A) : NULL                            
+REMARK   3                                                                      
+REMARK   3  RMS DEVIATIONS FROM IDEAL VALUES.                                   
+REMARK   3   BOND LENGTHS                 (A) : 0.014                           
+REMARK   3   BOND ANGLES            (DEGREES) : 1.600                           
+REMARK   3   DIHEDRAL ANGLES        (DEGREES) : NULL                            
+REMARK   3   IMPROPER ANGLES        (DEGREES) : NULL                            
+REMARK   3                                                                      
+REMARK   3  ISOTROPIC THERMAL MODEL : NULL                                      
+REMARK   3                                                                      
+REMARK   3  ISOTROPIC THERMAL FACTOR RESTRAINTS.    RMS    SIGMA                
+REMARK   3   MAIN-CHAIN BOND              (A**2) : NULL  ; NULL                 
+REMARK   3   MAIN-CHAIN ANGLE             (A**2) : NULL  ; NULL                 
+REMARK   3   SIDE-CHAIN BOND              (A**2) : NULL  ; NULL                 
+REMARK   3   SIDE-CHAIN ANGLE             (A**2) : NULL  ; NULL                 
+REMARK   3                                                                      
+REMARK   3  NCS MODEL : NULL                                                    
+REMARK   3                                                                      
+REMARK   3  NCS RESTRAINTS.                         RMS   SIGMA/WEIGHT          
+REMARK   3   GROUP  1  POSITIONAL            (A) : NULL  ; NULL                 
+REMARK   3   GROUP  1  B-FACTOR           (A**2) : NULL  ; NULL                 
+REMARK   3                                                                      
+REMARK   3  PARAMETER FILE  1  : NULL                                           
+REMARK   3  TOPOLOGY FILE  1   : NULL                                           
+REMARK   3                                                                      
+REMARK   3  OTHER REFINEMENT REMARKS: NULL                                      
+REMARK   4                                                                      
+REMARK   4 1POS COMPLIES WITH FORMAT V. 3.30, 13-JUL-11                         
+REMARK 100                                                                      
+REMARK 100 THIS ENTRY HAS BEEN PROCESSED BY BNL.                                
+REMARK 100 THE DEPOSITION ID IS D_1000175772.                                   
+REMARK 200                                                                      
+REMARK 200 EXPERIMENTAL DETAILS                                                 
+REMARK 200  EXPERIMENT TYPE                : X-RAY DIFFRACTION                  
+REMARK 200  DATE OF DATA COLLECTION        : NULL                               
+REMARK 200  TEMPERATURE           (KELVIN) : NULL                               
+REMARK 200  PH                             : NULL                               
+REMARK 200  NUMBER OF CRYSTALS USED        : NULL                               
+REMARK 200                                                                      
+REMARK 200  SYNCHROTRON              (Y/N) : NULL                               
+REMARK 200  RADIATION SOURCE               : NULL                               
+REMARK 200  BEAMLINE                       : NULL                               
+REMARK 200  X-RAY GENERATOR MODEL          : NULL                               
+REMARK 200  MONOCHROMATIC OR LAUE    (M/L) : NULL                               
+REMARK 200  WAVELENGTH OR RANGE        (A) : NULL                               
+REMARK 200  MONOCHROMATOR                  : NULL                               
+REMARK 200  OPTICS                         : NULL                               
+REMARK 200                                                                      
+REMARK 200  DETECTOR TYPE                  : NULL                               
+REMARK 200  DETECTOR MANUFACTURER          : NULL                               
+REMARK 200  INTENSITY-INTEGRATION SOFTWARE : NULL                               
+REMARK 200  DATA SCALING SOFTWARE          : NULL                               
+REMARK 200                                                                      
+REMARK 200  NUMBER OF UNIQUE REFLECTIONS   : NULL                               
+REMARK 200  RESOLUTION RANGE HIGH      (A) : NULL                               
+REMARK 200  RESOLUTION RANGE LOW       (A) : NULL                               
+REMARK 200  REJECTION CRITERIA  (SIGMA(I)) : NULL                               
+REMARK 200                                                                      
+REMARK 200 OVERALL.                                                             
+REMARK 200  COMPLETENESS FOR RANGE     (%) : NULL                               
+REMARK 200  DATA REDUNDANCY                : NULL                               
+REMARK 200  R MERGE                    (I) : NULL                               
+REMARK 200  R SYM                      (I) : NULL                               
+REMARK 200  <I/SIGMA(I)> FOR THE DATA SET  : NULL                               
+REMARK 200                                                                      
+REMARK 200 IN THE HIGHEST RESOLUTION SHELL.                                     
+REMARK 200  HIGHEST RESOLUTION SHELL, RANGE HIGH (A) : NULL                     
+REMARK 200  HIGHEST RESOLUTION SHELL, RANGE LOW  (A) : NULL                     
+REMARK 200  COMPLETENESS FOR SHELL     (%) : NULL                               
+REMARK 200  DATA REDUNDANCY IN SHELL       : NULL                               
+REMARK 200  R MERGE FOR SHELL          (I) : NULL                               
+REMARK 200  R SYM FOR SHELL            (I) : NULL                               
+REMARK 200  <I/SIGMA(I)> FOR SHELL         : NULL                               
+REMARK 200                                                                      
+REMARK 200 DIFFRACTION PROTOCOL: NULL                                           
+REMARK 200 METHOD USED TO DETERMINE THE STRUCTURE: NULL                         
+REMARK 200 SOFTWARE USED: X-PLOR                                                
+REMARK 200 STARTING MODEL: NULL                                                 
+REMARK 200                                                                      
+REMARK 200 REMARK: NULL                                                         
+REMARK 280                                                                      
+REMARK 280 CRYSTAL                                                              
+REMARK 280 SOLVENT CONTENT, VS   (%): 68.03                                     
+REMARK 280 MATTHEWS COEFFICIENT, VM (ANGSTROMS**3/DA): 3.85                     
+REMARK 280                                                                      
+REMARK 280 CRYSTALLIZATION CONDITIONS: NULL                                     
+REMARK 290                                                                      
+REMARK 290 CRYSTALLOGRAPHIC SYMMETRY                                            
+REMARK 290 SYMMETRY OPERATORS FOR SPACE GROUP: I 21 21 21                       
+REMARK 290                                                                      
+REMARK 290      SYMOP   SYMMETRY                                                
+REMARK 290     NNNMMM   OPERATOR                                                
+REMARK 290       1555   X,Y,Z                                                   
+REMARK 290       2555   -X+1/2,-Y,Z+1/2                                         
+REMARK 290       3555   -X,Y+1/2,-Z+1/2                                         
+REMARK 290       4555   X+1/2,-Y+1/2,-Z                                         
+REMARK 290       5555   X+1/2,Y+1/2,Z+1/2                                       
+REMARK 290       6555   -X,-Y+1/2,Z                                             
+REMARK 290       7555   -X+1/2,Y,-Z                                             
+REMARK 290       8555   X,-Y,-Z+1/2                                             
+REMARK 290                                                                      
+REMARK 290     WHERE NNN -> OPERATOR NUMBER                                     
+REMARK 290           MMM -> TRANSLATION VECTOR                                  
+REMARK 290                                                                      
+REMARK 290 CRYSTALLOGRAPHIC SYMMETRY TRANSFORMATIONS                            
+REMARK 290 THE FOLLOWING TRANSFORMATIONS OPERATE ON THE ATOM/HETATM             
+REMARK 290 RECORDS IN THIS ENTRY TO PRODUCE CRYSTALLOGRAPHICALLY                
+REMARK 290 RELATED MOLECULES.                                                   
+REMARK 290   SMTRY1   1  1.000000  0.000000  0.000000        0.00000            
+REMARK 290   SMTRY2   1  0.000000  1.000000  0.000000        0.00000            
+REMARK 290   SMTRY3   1  0.000000  0.000000  1.000000        0.00000            
+REMARK 290   SMTRY1   2 -1.000000  0.000000  0.000000       90.84000            
+REMARK 290   SMTRY2   2  0.000000 -1.000000  0.000000        0.00000            
+REMARK 290   SMTRY3   2  0.000000  0.000000  1.000000       36.39500            
+REMARK 290   SMTRY1   3 -1.000000  0.000000  0.000000        0.00000            
+REMARK 290   SMTRY2   3  0.000000  1.000000  0.000000       27.34500            
+REMARK 290   SMTRY3   3  0.000000  0.000000 -1.000000       36.39500            
+REMARK 290   SMTRY1   4  1.000000  0.000000  0.000000       90.84000            
+REMARK 290   SMTRY2   4  0.000000 -1.000000  0.000000       27.34500            
+REMARK 290   SMTRY3   4  0.000000  0.000000 -1.000000        0.00000            
+REMARK 290   SMTRY1   5  1.000000  0.000000  0.000000       90.84000            
+REMARK 290   SMTRY2   5  0.000000  1.000000  0.000000       27.34500            
+REMARK 290   SMTRY3   5  0.000000  0.000000  1.000000       36.39500            
+REMARK 290   SMTRY1   6 -1.000000  0.000000  0.000000        0.00000            
+REMARK 290   SMTRY2   6  0.000000 -1.000000  0.000000       27.34500            
+REMARK 290   SMTRY3   6  0.000000  0.000000  1.000000        0.00000            
+REMARK 290   SMTRY1   7 -1.000000  0.000000  0.000000       90.84000            
+REMARK 290   SMTRY2   7  0.000000  1.000000  0.000000        0.00000            
+REMARK 290   SMTRY3   7  0.000000  0.000000 -1.000000        0.00000            
+REMARK 290   SMTRY1   8  1.000000  0.000000  0.000000        0.00000            
+REMARK 290   SMTRY2   8  0.000000 -1.000000  0.000000        0.00000            
+REMARK 290   SMTRY3   8  0.000000  0.000000 -1.000000       36.39500            
+REMARK 290                                                                      
+REMARK 290 REMARK: NULL                                                         
+REMARK 300                                                                      
+REMARK 300 BIOMOLECULE: 1, 2                                                    
+REMARK 300 SEE REMARK 350 FOR THE AUTHOR PROVIDED AND/OR PROGRAM                
+REMARK 300 GENERATED ASSEMBLY INFORMATION FOR THE STRUCTURE IN                  
+REMARK 300 THIS ENTRY. THE REMARK MAY ALSO PROVIDE INFORMATION ON               
+REMARK 300 BURIED SURFACE AREA.                                                 
+REMARK 350                                                                      
+REMARK 350 COORDINATES FOR A COMPLETE MULTIMER REPRESENTING THE KNOWN           
+REMARK 350 BIOLOGICALLY SIGNIFICANT OLIGOMERIZATION STATE OF THE                
+REMARK 350 MOLECULE CAN BE GENERATED BY APPLYING BIOMT TRANSFORMATIONS          
+REMARK 350 GIVEN BELOW.  BOTH NON-CRYSTALLOGRAPHIC AND                          
+REMARK 350 CRYSTALLOGRAPHIC OPERATIONS ARE GIVEN.                               
+REMARK 350                                                                      
+REMARK 350 BIOMOLECULE: 1                                                       
+REMARK 350 AUTHOR DETERMINED BIOLOGICAL UNIT: MONOMERIC                         
+REMARK 350 APPLY THE FOLLOWING TO CHAINS: A                                     
+REMARK 350   BIOMT1   1  1.000000  0.000000  0.000000        0.00000            
+REMARK 350   BIOMT2   1  0.000000  1.000000  0.000000        0.00000            
+REMARK 350   BIOMT3   1  0.000000  0.000000  1.000000        0.00000            
+REMARK 350                                                                      
+REMARK 350 BIOMOLECULE: 2                                                       
+REMARK 350 AUTHOR DETERMINED BIOLOGICAL UNIT: MONOMERIC                         
+REMARK 350 APPLY THE FOLLOWING TO CHAINS: B                                     
+REMARK 350   BIOMT1   1  1.000000  0.000000  0.000000        0.00000            
+REMARK 350   BIOMT2   1  0.000000  1.000000  0.000000        0.00000            
+REMARK 350   BIOMT3   1  0.000000  0.000000  1.000000        0.00000            
+DBREF  1POS A    2   106  UNP    P01359   TFF2_PIG        23    127             
+DBREF  1POS B    2   106  UNP    P01359   TFF2_PIG        23    127             
+SEQADV 1POS GLN A   61  UNP  P01359    GLU    82 CONFLICT                       
+SEQADV 1POS ALA A   80  UNP  P01359    ARG   101 CONFLICT                       
+SEQADV 1POS GLN B   61  UNP  P01359    GLU    82 CONFLICT                       
+SEQADV 1POS ALA B   80  UNP  P01359    ARG   101 CONFLICT                       
+SEQRES   1 A  106  PCA LYS PRO ALA ALA CYS ARG CYS SER ARG GLN ASP PRO          
+SEQRES   2 A  106  LYS ASN ARG VAL ASN CYS GLY PHE PRO GLY ILE THR SER          
+SEQRES   3 A  106  ASP GLN CYS PHE THR SER GLY CYS CYS PHE ASP SER GLN          
+SEQRES   4 A  106  VAL PRO GLY VAL PRO TRP CYS PHE LYS PRO LEU PRO ALA          
+SEQRES   5 A  106  GLN GLU SER GLU GLU CYS VAL MET GLN VAL SER ALA ARG          
+SEQRES   6 A  106  LYS ASN CYS GLY TYR PRO GLY ILE SER PRO GLU ASP CYS          
+SEQRES   7 A  106  ALA ALA ARG ASN CYS CYS PHE SER ASP THR ILE PRO GLU          
+SEQRES   8 A  106  VAL PRO TRP CYS PHE PHE PRO MET SER VAL GLU ASP CYS          
+SEQRES   9 A  106  HIS TYR                                                      
+SEQRES   1 B  106  PCA LYS PRO ALA ALA CYS ARG CYS SER ARG GLN ASP PRO          
+SEQRES   2 B  106  LYS ASN ARG VAL ASN CYS GLY PHE PRO GLY ILE THR SER          
+SEQRES   3 B  106  ASP GLN CYS PHE THR SER GLY CYS CYS PHE ASP SER GLN          
+SEQRES   4 B  106  VAL PRO GLY VAL PRO TRP CYS PHE LYS PRO LEU PRO ALA          
+SEQRES   5 B  106  GLN GLU SER GLU GLU CYS VAL MET GLN VAL SER ALA ARG          
+SEQRES   6 B  106  LYS ASN CYS GLY TYR PRO GLY ILE SER PRO GLU ASP CYS          
+SEQRES   7 B  106  ALA ALA ARG ASN CYS CYS PHE SER ASP THR ILE PRO GLU          
+SEQRES   8 B  106  VAL PRO TRP CYS PHE PHE PRO MET SER VAL GLU ASP CYS          
+SEQRES   9 B  106  HIS TYR                                                      
+MODRES 1POS PCA A    1  GLN  PYROGLUTAMIC ACID                                  
+MODRES 1POS PCA B    1  GLN  PYROGLUTAMIC ACID                                  
+HET    PCA  A   1       1                                                       
+HET    PCA  B   1       1                                                       
+HETNAM     PCA PYROGLUTAMIC ACID                                                
+FORMUL   1  PCA    2(C5 H7 N O3)                                                
+HELIX    1  AA ALA A    4  ARG A   10  1                                   7    
+HELIX    2 A1A THR A   25  SER A   32  1                                   8    
+HELIX    3  AB SER A   55  GLN A   61  1                                   7    
+HELIX    4 A1B PRO A   75  ARG A   81  1                                   7    
+HELIX    5  BA ALA B    4  ARG B   10  1                                   7    
+HELIX    6 B1A THR B   25  SER B   32  1                                   8    
+HELIX    7  BB SER B   55  GLN B   61  1                                   7    
+HELIX    8 B1B PRO B   75  ARG B   81  1                                   7    
+SHEET    1   A 2 CYS A  35  ASP A  37  0                                        
+SHEET    2   A 2 TRP A  45  PHE A  47 -1                                        
+SHEET    1   B 2 CYS B  84  SER B  86  0                                        
+SHEET    2   B 2 TRP B  94  PHE B  96 -1                                        
+CRYST1  181.680   54.690   72.790  90.00  90.00  90.00 I 21 21 21   16          
+ORIGX1      1.000000  0.000000  0.000000        0.00000                         
+ORIGX2      0.000000  1.000000  0.000000        0.00000                         
+ORIGX3      0.000000  0.000000  1.000000        0.00000                         
+SCALE1      0.005504  0.000000  0.000000        0.00000                         
+SCALE2      0.000000  0.018285  0.000000        0.00000                         
+SCALE3      0.000000  0.000000  0.013738        0.00000                         
+HETATM    1  CA  PCA A   1      83.339  28.789  29.151  1.00 37.50           C  
+ATOM      2  CA  LYS A   2      82.507  25.124  29.874  1.00 29.61           C  
+ATOM      3  CA  PRO A   3      79.182  23.339  29.741  1.00 25.66           C  
+ATOM      4  CA  ALA A   4      78.543  21.615  33.030  1.00 14.09           C  
+ATOM      5  CA  ALA A   5      78.782  17.899  32.421  1.00 16.12           C  
+ATOM      6  CA  CYS A   6      75.047  17.244  32.222  1.00 17.77           C  
+ATOM      7  CA  ARG A   7      74.776  19.422  29.158  1.00 10.12           C  
+ATOM      8  CA  CYS A   8      77.348  17.126  27.509  1.00 12.04           C  
+ATOM      9  CA  SER A   9      76.760  13.962  29.380  1.00 17.02           C  
+ATOM     10  CA  ARG A  10      73.068  13.748  28.425  1.00 23.53           C  
+ATOM     11  CA  GLN A  11      72.997  13.957  24.614  1.00 20.60           C  
+ATOM     12  CA  ASP A  12      73.094  10.740  22.597  1.00 26.36           C  
+ATOM     13  CA  PRO A  13      76.394  10.398  20.698  1.00 27.31           C  
+ATOM     14  CA  LYS A  14      74.494   9.987  17.397  1.00 26.92           C  
+ATOM     15  CA  ASN A  15      72.972  13.387  17.960  1.00 26.11           C  
+ATOM     16  CA  ARG A  16      76.054  15.378  18.697  1.00 19.70           C  
+ATOM     17  CA  VAL A  17      76.410  18.490  16.617  1.00 18.23           C  
+ATOM     18  CA  ASN A  18      80.020  19.254  15.767  1.00 25.36           C  
+ATOM     19  CA  CYS A  19      81.538  22.345  17.414  1.00 19.69           C  
+ATOM     20  CA  GLY A  20      84.783  24.200  16.765  1.00 24.38           C  
+ATOM     21  CA  PHE A  21      87.185  23.855  13.797  1.00 27.69           C  
+ATOM     22  CA  PRO A  22      88.771  20.507  13.046  1.00 32.67           C  
+ATOM     23  CA  GLY A  23      91.736  19.450  15.216  1.00 29.19           C  
+ATOM     24  CA  ILE A  24      90.751  21.827  18.015  1.00 18.67           C  
+ATOM     25  CA  THR A  25      92.237  20.604  21.305  1.00 16.53           C  
+ATOM     26  CA  SER A  26      90.133  19.617  24.289  1.00 16.08           C  
+ATOM     27  CA  ASP A  27      90.893  22.861  26.009  1.00 24.87           C  
+ATOM     28  CA  GLN A  28      89.898  25.018  23.007  1.00 22.81           C  
+ATOM     29  CA  CYS A  29      86.699  23.061  22.554  1.00 18.67           C  
+ATOM     30  CA  PHE A  30      85.655  23.371  26.241  1.00 13.61           C  
+ATOM     31  CA  THR A  31      86.618  27.000  26.644  1.00 22.60           C  
+ATOM     32  CA  SER A  32      84.867  28.105  23.513  1.00 22.24           C  
+ATOM     33  CA  GLY A  33      81.789  26.760  25.296  1.00 17.87           C  
+ATOM     34  CA  CYS A  34      81.386  23.231  23.948  1.00  9.62           C  
+ATOM     35  CA  CYS A  35      81.814  19.642  25.053  1.00 12.16           C  
+ATOM     36  CA  PHE A  36      84.914  17.606  24.376  1.00 14.05           C  
+ATOM     37  CA  ASP A  37      84.599  13.843  24.817  1.00  8.85           C  
+ATOM     38  CA  SER A  38      87.111  11.392  23.348  1.00 14.07           C  
+ATOM     39  CA  GLN A  39      85.704   8.049  24.456  1.00 17.64           C  
+ATOM     40  CA  VAL A  40      83.090   7.395  21.773  1.00 12.01           C  
+ATOM     41  CA  PRO A  41      84.051   6.555  18.162  1.00 18.44           C  
+ATOM     42  CA  GLY A  42      82.276   7.816  15.129  1.00 25.31           C  
+ATOM     43  CA  VAL A  43      80.865  11.022  16.508  1.00 14.45           C  
+ATOM     44  CA  PRO A  44      82.022  14.567  17.069  1.00 12.56           C  
+ATOM     45  CA  TRP A  45      84.516  14.653  19.927  1.00  9.34           C  
+ATOM     46  CA  CYS A  46      83.853  18.381  20.211  1.00  9.36           C  
+ATOM     47  CA  PHE A  47      80.102  19.115  20.201  1.00 12.89           C  
+ATOM     48  CA  LYS A  48      77.459  21.676  21.142  1.00 14.13           C  
+ATOM     49  CA  PRO A  49      75.903  21.334  24.603  1.00 13.70           C  
+ATOM     50  CA  LEU A  50      72.224  20.748  25.558  1.00  8.83           C  
+ATOM     51  CA  PRO A  51      70.771  24.157  26.429  1.00 17.22           C  
+ATOM     52  CA  ALA A  52      71.057  25.260  30.022  1.00 26.86           C  
+ATOM     53  CA  GLN A  53      68.476  25.176  32.734  1.00 35.11           C  
+ATOM     54  CA  GLU A  54      68.015  26.748  36.152  1.00 43.54           C  
+ATOM     55  CA  SER A  55      69.011  23.369  37.585  1.00 28.18           C  
+ATOM     56  CA  GLU A  56      71.074  20.530  36.172  1.00 24.72           C  
+ATOM     57  CA  GLU A  57      68.624  17.876  37.167  1.00 22.22           C  
+ATOM     58  CA  CYS A  58      66.341  19.441  34.523  1.00 19.75           C  
+ATOM     59  CA  VAL A  59      68.905  19.250  31.722  1.00 13.75           C  
+ATOM     60  CA  MET A  60      68.072  16.483  29.218  1.00 11.02           C  
+ATOM     61  CA  GLN A  61      67.179  15.901  25.636  1.00 16.97           C  
+ATOM     62  CA  VAL A  62      63.750  17.476  24.831  1.00 12.77           C  
+ATOM     63  CA  SER A  63      62.394  14.115  23.873  1.00 17.90           C  
+ATOM     64  CA  ALA A  64      63.357  12.481  27.094  1.00 20.86           C  
+ATOM     65  CA  ARG A  65      61.230  14.711  29.267  1.00 19.48           C  
+ATOM     66  CA  LYS A  66      58.423  12.721  30.834  1.00 25.15           C  
+ATOM     67  CA  ASN A  67      55.351  14.907  31.494  1.00 24.19           C  
+ATOM     68  CA  CYS A  68      54.612  15.899  35.044  1.00 23.15           C  
+ATOM     69  CA  GLY A  69      52.277  18.926  34.957  1.00 21.36           C  
+ATOM     70  CA  TYR A  70      49.136  19.336  32.860  1.00 12.69           C  
+ATOM     71  CA  PRO A  71      48.435  21.533  29.855  1.00 18.97           C  
+ATOM     72  CA  GLY A  72      48.286  25.017  31.237  1.00 13.21           C  
+ATOM     73  CA  ILE A  73      50.168  24.371  34.497  1.00 10.88           C  
+ATOM     74  CA  SER A  74      51.975  27.259  36.179  1.00 19.61           C  
+ATOM     75  CA  PRO A  75      55.706  27.465  36.745  1.00 22.78           C  
+ATOM     76  CA  GLU A  76      54.976  27.969  40.460  1.00 24.96           C  
+ATOM     77  CA  ASP A  77      52.653  25.011  40.471  1.00 22.57           C  
+ATOM     78  CA  CYS A  78      54.994  22.812  38.468  1.00 14.51           C  
+ATOM     79  CA  ALA A  79      57.765  23.643  40.984  1.00 13.77           C  
+ATOM     80  CA  ALA A  80      55.308  22.779  43.754  1.00 16.22           C  
+ATOM     81  CA  ARG A  81      55.599  19.156  42.673  1.00 14.33           C  
+ATOM     82  CA  ASN A  82      59.373  19.206  42.381  1.00 20.26           C  
+ATOM     83  CA  CYS A  83      59.388  19.165  38.622  1.00 12.65           C  
+ATOM     84  CA  CYS A  84      61.036  21.176  35.871  1.00 12.23           C  
+ATOM     85  CA  PHE A  85      59.555  23.996  33.813  1.00  9.62           C  
+ATOM     86  CA  SER A  86      60.915  25.215  30.460  1.00 17.84           C  
+ATOM     87  CA  ASP A  87      58.584  27.066  28.145  1.00 14.13           C  
+ATOM     88  CA  THR A  88      60.810  27.323  25.042  1.00 14.59           C  
+ATOM     89  CA  ILE A  89      60.004  24.423  22.735  1.00 14.50           C  
+ATOM     90  CA  PRO A  90      56.363  24.368  21.695  1.00 14.58           C  
+ATOM     91  CA  GLU A  91      54.531  21.131  21.375  1.00 10.85           C  
+ATOM     92  CA  VAL A  92      56.394  19.439  24.187  1.00 12.30           C  
+ATOM     93  CA  PRO A  93      55.748  18.993  27.957  1.00  3.46           C  
+ATOM     94  CA  TRP A  94      56.540  22.268  29.707  1.00  4.48           C  
+ATOM     95  CA  CYS A  95      56.662  20.490  33.073  1.00  2.96           C  
+ATOM     96  CA  PHE A  96      58.717  17.348  33.318  1.00  9.43           C  
+ATOM     97  CA  PHE A  97      60.368  15.249  36.055  1.00 18.86           C  
+ATOM     98  CA  PRO A  98      64.079  16.072  36.551  1.00 25.30           C  
+ATOM     99  CA  MET A  99      66.922  13.567  36.354  1.00 37.30           C  
+ATOM    100  CA  SER A 100      69.188  12.946  39.356  1.00 48.87           C  
+ATOM    101  CA  VAL A 101      72.411  14.621  38.246  1.00 51.70           C  
+ATOM    102  CA  GLU A 102      74.931  11.800  38.494  1.00 55.67           C  
+ATOM    103  CA  ASP A 103      75.070   9.955  35.186  1.00 54.15           C  
+ATOM    104  CA  CYS A 104      76.661  13.273  34.189  1.00 42.94           C  
+ATOM    105  CA  HIS A 105      80.400  13.235  33.427  1.00 43.59           C  
+ATOM    106  CA  TYR A 106      82.741  14.356  30.716  1.00 41.09           C  
+TER     107      TYR A 106                                                      
+HETATM  108  CA  PCA B   1      37.868  22.899   9.000  1.00 40.62           C  
+ATOM    109  CA  LYS B   2      37.466  19.095   9.572  1.00 32.52           C  
+ATOM    110  CA  PRO B   3      40.651  17.604  11.103  1.00 31.55           C  
+ATOM    111  CA  ALA B   4      41.812  14.226   9.946  1.00 27.87           C  
+ATOM    112  CA  ALA B   5      41.519  11.280  12.277  1.00 28.40           C  
+ATOM    113  CA  CYS B   6      45.176  10.920  13.265  1.00 23.46           C  
+ATOM    114  CA  ARG B   7      45.467  14.617  14.168  1.00 14.81           C  
+ATOM    115  CA  CYS B   8      42.891  13.770  16.880  1.00 17.81           C  
+ATOM    116  CA  SER B   9      43.367  10.125  17.680  1.00 19.35           C  
+ATOM    117  CA  ARG B  10      47.162  10.344  18.055  1.00 28.85           C  
+ATOM    118  CA  GLN B  11      47.186  12.428  21.222  1.00 28.69           C  
+ATOM    119  CA  ASP B  12      46.763  11.267  24.822  1.00 25.23           C  
+ATOM    120  CA  PRO B  13      43.446  12.549  26.195  1.00 18.54           C  
+ATOM    121  CA  LYS B  14      45.222  13.834  29.230  1.00 27.57           C  
+ATOM    122  CA  ASN B  15      46.958  16.535  27.305  1.00 29.46           C  
+ATOM    123  CA  ARG B  16      44.059  17.562  25.111  1.00 21.54           C  
+ATOM    124  CA  VAL B  17      43.586  21.322  24.718  1.00 23.01           C  
+ATOM    125  CA  ASN B  18      40.209  23.057  24.909  1.00 28.44           C  
+ATOM    126  CA  CYS B  19      38.821  24.110  21.556  1.00 24.33           C  
+ATOM    127  CA  GLY B  20      35.556  26.106  21.404  1.00 29.29           C  
+ATOM    128  CA  PHE B  21      32.815  27.370  23.773  1.00 31.95           C  
+ATOM    129  CA  PRO B  22      31.297  24.851  26.168  1.00 34.74           C  
+ATOM    130  CA  GLY B  23      28.445  22.692  24.948  1.00 33.34           C  
+ATOM    131  CA  ILE B  24      29.613  23.257  21.397  1.00 29.26           C  
+ATOM    132  CA  THR B  25      28.362  20.360  19.307  1.00 31.00           C  
+ATOM    133  CA  SER B  26      30.047  17.547  17.465  1.00 29.47           C  
+ATOM    134  CA  ASP B  27      29.471  19.143  14.066  1.00 32.04           C  
+ATOM    135  CA  GLN B  28      30.644  22.622  14.944  1.00 26.22           C  
+ATOM    136  CA  CYS B  29      33.724  21.374  16.842  1.00 19.39           C  
+ATOM    137  CA  PHE B  30      34.725  19.533  13.723  1.00 13.90           C  
+ATOM    138  CA  THR B  31      34.002  22.394  11.347  1.00 21.52           C  
+ATOM    139  CA  SER B  32      35.836  25.000  13.376  1.00 25.52           C  
+ATOM    140  CA  GLY B  33      38.655  22.565  12.701  1.00 20.64           C  
+ATOM    141  CA  CYS B  34      38.927  20.806  16.033  1.00 13.18           C  
+ATOM    142  CA  CYS B  35      38.486  17.298  17.171  1.00 14.58           C  
+ATOM    143  CA  PHE B  36      35.404  16.130  19.064  1.00 15.16           C  
+ATOM    144  CA  ASP B  37      35.504  13.117  21.370  1.00 18.42           C  
+ATOM    145  CA  SER B  38      33.049  12.394  24.155  1.00 24.40           C  
+ATOM    146  CA  GLN B  39      34.008   8.853  24.989  1.00 34.53           C  
+ATOM    147  CA  VAL B  40      36.519  10.159  27.575  1.00 28.46           C  
+ATOM    148  CA  PRO B  41      35.759  11.567  31.097  1.00 24.49           C  
+ATOM    149  CA  GLY B  42      38.104  14.147  32.572  1.00 24.39           C  
+ATOM    150  CA  VAL B  43      39.160  15.716  29.333  1.00 18.22           C  
+ATOM    151  CA  PRO B  44      37.996  18.295  26.858  1.00 14.21           C  
+ATOM    152  CA  TRP B  45      35.533  16.988  24.290  1.00 18.47           C  
+ATOM    153  CA  CYS B  46      36.299  19.565  21.665  1.00 11.37           C  
+ATOM    154  CA  PHE B  47      40.133  19.771  21.526  1.00 12.25           C  
+ATOM    155  CA  LYS B  48      42.697  21.380  19.194  1.00 12.57           C  
+ATOM    156  CA  PRO B  49      44.269  18.750  16.935  1.00 16.00           C  
+ATOM    157  CA  LEU B  50      47.860  17.642  16.207  1.00 13.99           C  
+ATOM    158  CA  PRO B  51      49.425  19.861  13.515  1.00 15.40           C  
+ATOM    159  CA  ALA B  52      48.964  18.852   9.888  1.00 25.42           C  
+ATOM    160  CA  GLN B  53      51.705  16.755   8.399  1.00 35.90           C  
+ATOM    161  CA  GLU B  54      52.274  16.357   4.672  1.00 43.20           C  
+ATOM    162  CA  SER B  55      50.937  12.820   5.069  1.00 38.78           C  
+ATOM    163  CA  GLU B  56      48.870  11.218   7.805  1.00 39.56           C  
+ATOM    164  CA  GLU B  57      51.410   8.508   8.745  1.00 34.93           C  
+ATOM    165  CA  CYS B  58      53.647  11.363   9.831  1.00 28.36           C  
+ATOM    166  CA  VAL B  59      51.073  12.654  12.307  1.00 27.97           C  
+ATOM    167  CA  MET B  60      51.994  11.983  15.916  1.00 27.29           C  
+ATOM    168  CA  GLN B  61      53.057  13.715  19.093  1.00 28.03           C  
+ATOM    169  CA  VAL B  62      56.511  15.404  18.885  1.00 21.83           C  
+ATOM    170  CA  SER B  63      57.808  13.262  21.777  1.00 32.77           C  
+ATOM    171  CA  ALA B  64      56.625  10.149  19.869  1.00 31.29           C  
+ATOM    172  CA  ARG B  65      58.886  10.743  16.852  1.00 23.11           C  
+ATOM    173  CA  LYS B  66      61.422   7.923  16.358  1.00 32.54           C  
+ATOM    174  CA  ASN B  67      64.500   9.598  14.865  1.00 35.11           C  
+ATOM    175  CA  CYS B  68      65.290   8.136  11.474  1.00 34.94           C  
+ATOM    176  CA  GLY B  69      67.987  10.358   9.985  1.00 31.53           C  
+ATOM    177  CA  TYR B  70      70.887  12.326  11.502  1.00 25.01           C  
+ATOM    178  CA  PRO B  71      71.590  15.979  12.286  1.00 28.25           C  
+ATOM    179  CA  GLY B  72      71.371  17.983   9.088  1.00 30.89           C  
+ATOM    180  CA  ILE B  73      69.865  15.167   7.005  1.00 27.33           C  
+ATOM    181  CA  SER B  74      67.991  17.181   4.443  1.00 28.74           C  
+ATOM    182  CA  PRO B  75      64.380  16.896   3.212  1.00 25.35           C  
+ATOM    183  CA  GLU B  76      65.522  15.047   0.121  1.00 37.08           C  
+ATOM    184  CA  ASP B  77      67.574  12.278   1.682  1.00 36.45           C  
+ATOM    185  CA  CYS B  78      65.360  11.983   4.678  1.00 35.93           C  
+ATOM    186  CA  ALA B  79      62.504  11.248   2.277  1.00 39.56           C  
+ATOM    187  CA  ALA B  80      64.743   8.998   0.220  1.00 41.85           C  
+ATOM    188  CA  ARG B  81      64.817   6.854   3.408  1.00 49.36           C  
+ATOM    189  CA  ASN B  82      61.013   6.789   3.388  1.00 49.83           C  
+ATOM    190  CA  CYS B  83      60.717   8.677   6.624  1.00 35.53           C  
+ATOM    191  CA  CYS B  84      58.824  11.828   7.644  1.00 26.35           C  
+ATOM    192  CA  PHE B  85      60.627  15.146   7.737  1.00 21.75           C  
+ATOM    193  CA  SER B  86      59.522  18.178   9.650  1.00 22.82           C  
+ATOM    194  CA  ASP B  87      61.605  21.148  10.722  1.00 16.88           C  
+ATOM    195  CA  THR B  88      59.011  23.408  12.417  1.00 14.57           C  
+ATOM    196  CA  ILE B  89      60.033  22.558  15.991  1.00 12.73           C  
+ATOM    197  CA  PRO B  90      63.635  23.063  17.199  1.00 11.33           C  
+ATOM    198  CA  GLU B  91      65.746  20.650  19.230  1.00 15.88           C  
+ATOM    199  CA  VAL B  92      63.911  17.537  18.132  1.00  9.48           C  
+ATOM    200  CA  PRO B  93      64.147  15.013  15.287  1.00 11.83           C  
+ATOM    201  CA  TRP B  94      63.416  16.636  11.892  1.00  5.93           C  
+ATOM    202  CA  CYS B  95      63.293  13.173  10.312  1.00 13.83           C  
+ATOM    203  CA  PHE B  96      61.435  10.264  11.809  1.00 22.31           C  
+ATOM    204  CA  PHE B  97      59.625   6.999  11.206  1.00 31.73           C  
+ATOM    205  CA  PRO B  98      56.066   7.495   9.993  1.00 37.39           C  
+ATOM    206  CA  MET B  99      53.283   5.717  11.850  1.00 43.69           C  
+ATOM    207  CA  SER B 100      50.851   3.592   9.930  1.00 54.07           C  
+ATOM    208  CA  VAL B 101      47.570   5.503   9.558  1.00 55.98           C  
+ATOM    209  CA  GLU B 102      45.331   2.701  10.979  1.00 56.21           C  
+ATOM    210  CA  ASP B 103      45.271   3.422  14.730  1.00 52.03           C  
+ATOM    211  CA  CYS B 104      43.386   6.591  13.925  1.00 42.78           C  
+ATOM    212  CA  HIS B 105      39.671   7.238  14.311  1.00 46.92           C  
+ATOM    213  CA  TYR B 106      37.430   9.991  15.609  1.00 42.27           C  
+TER     214      TYR B 106                                                      
+MASTER      228    0    2    8    4    0    0    6  212    2    0   18          
+END                                                                             
