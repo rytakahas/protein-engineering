@@ -4,24 +4,41 @@ numpy>=1.26,<3
 scipy>=1.11,<2
 pandas>=2.2,<3
 PyYAML>=6.0,<7
+typing_extensions>=4.12,<5  # fixes SQLAlchemy TypeAliasType import on Py3.11
 
 # --- ML / NLP ---
 transformers>=4.44,<5
 tokenizers>=0.19,<0.21
 scikit-learn>=1.4,<1.6
 optuna>=3.6,<4
+SQLAlchemy>=2.0,<3         # Optuna RDB storage (sqlite:///sweeps/rescontact.db)
 
 # --- Bio ---
 biopython>=1.83,<2
 
-# --- API ---
+# --- API / Server ---
 fastapi>=0.111,<0.116
 pydantic>=2.7,<3
 uvicorn[standard]>=0.30,<0.33
+python-multipart>=0.0.9,<0.0.10
+
+# --- Homology / MSA (server-only path) ---
+httpx>=0.27,<0.28          # async client for MMseqs/ColabFold APIs
+tenacity>=8.2,<9           # robust retries for remote calls
+requests-cache>=1.2,<1.3   # cache-first remote responses
 
 # --- Utils ---
 tqdm>=4.66,<5
 requests>=2.32,<3
 regex>=2024.5.15
 matplotlib>=3.8,<4
+orjson>=3.9,<4
+rich>=13.7,<14
+python-dotenv>=1.0,<2
 
+# --- Optional: ColabFold client (heavy; only if you need its Python API) ---
+# Installing this pulls JAX and can be large. For **MSA via ColabFold server** you do NOT need this.
+# If you still want it (macOS/Apple Silicon example pins):
+# colabfold>=1.5,<2
+# jax>=0.4.25,<0.5 ; sys_platform == "darwin"
+# jax-metal>=0.1.0 ; sys_platform == "darwin"
