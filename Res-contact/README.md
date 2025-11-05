@@ -1,4 +1,4 @@
-# Res-Contact — ESM2-based Residue–Residue Contact Prediction (Laptop-friendly)
+## Res-Contact — ESM2-based Residue–Residue Contact Prediction (Laptop-friendly)
 
 This repo trains a **lightweight contact predictor** on top of a **frozen ESM2** encoder and produces
 probability (and optionally binary) contact maps from a **single input sequence**. It supports **optional 1‑D MSA features** and, when enabled, **homology template priors** fetched via a **server‑only MMseqs2 path** (no local UniRef DB required).
@@ -12,7 +12,7 @@ probability (and optionally binary) contact maps from a **single input sequence*
 
 ---
 
-## 1) Setup
+### 1) Setup
 
 ### Requirements
 - Python 3.10–3.11
@@ -36,7 +36,7 @@ mkdir -p "$RESCONTACT_CACHE_DIR" "$RESCONTACT_TEMPLATE_DIR"
 
 ---
 
-## 2) Data layout
+### 2) Data layout
 
 ```
 data/
@@ -52,7 +52,7 @@ data/
 
 ---
 
-## 3) Train / Eval (ESM‑only, default)
+### 3) Train / Eval (ESM‑only, default)
 
 **Config:** `configs/rescontact.yaml` (ESM‑only by default; MSA off).
 
@@ -77,7 +77,7 @@ PYTHONPATH=src python scripts/eval.py \
 
 ---
 
-## 4) Optional MSA (1‑D features)
+### 4) Optional MSA (1‑D features)
 
 If you switch `features.use_msa: true`, the dataloader appends **+21 dims** per residue (20 AA frequencies + entropy). If an MSA is **not** present for a sequence, those dims are **zeros** (shape‑stable).
 
@@ -90,7 +90,7 @@ MSA remains **optional** to keep the laptop workflow light.
 
 ---
 
-## 5) Monitoring (PSI drift) — batch only (current)
+### 5) Monitoring (PSI drift) — batch only (current)
 
 Compute **Population Stability Index (PSI)** on predicted probabilities over the masked upper triangle (i<j).
 
@@ -118,7 +118,7 @@ Live/streaming PSI via API endpoints is **future work**.
 
 ---
 
-## 6) Hyperparameter tuning (Optuna, laptop‑friendly)
+### 6) Hyperparameter tuning (Optuna, laptop‑friendly)
 
 A coarse sweep is supported, but keep trials/epochs small on 8‑GB RAM.
 
@@ -145,7 +145,7 @@ python optuna_sweep.py \
 
 ---
 
-## 7) Homology templates — server‑only MMseqs2 (no local DB)
+### 7) Homology templates — server‑only MMseqs2 (no local DB)
 
 This path **does not require local UniRef/UniProt**. Everything is **download‑once and cache‑first**.  
 To **train with templates**, you **must build template priors _before_ training**.
@@ -158,7 +158,7 @@ export RESCONTACT_TEMPLATE_DIR="$RESCONTACT_CACHE_DIR/templates"
 mkdir -p "$RESCONTACT_TEMPLATE_DIR/priors"
 ```
 
-### 1) Retrieve homologs (cached JSON hits)
+#### 1) Retrieve homologs (cached JSON hits)
 Writes a compact JSON with top hits (identity/coverage) for each query in your FASTA.
 ```bash
 PYTHONPATH=src python scripts/retrieve_homologs.py \
@@ -168,7 +168,7 @@ PYTHONPATH=src python scripts/retrieve_homologs.py \
   --db uniref90 --max-hits 8 --min-ident 0.30 --min-cov 0.60
 ```
 
-### 2) Build template priors (cached structures)
+#### 2) Build template priors (cached structures)
 Downloads only the structures needed for those hits (from **PDB**/**AFDB**), maps them to the query indices,
 and writes **per-query prior channels** (contact/distance bins) into the cache.
 ```bash
@@ -185,7 +185,7 @@ PYTHONPATH=src python scripts/build_template_priors.py \
 - Everything is keyed by **(query sequence hash, hit accession, model)** and re‑used on subsequent runs.
 - If no homolog structures are found, training/eval **fallback to ESM‑only** seamlessly.
 
-### 3) Enable templates in config and train
+#### 3) Enable templates in config and train
 `configs/rescontact.yaml` (snippet):
 ```yaml
 features:
@@ -232,7 +232,7 @@ MMseqs2 finds **similar sequences**; PDB/AFDB provides **structural contacts** f
 
 ---
 
-## 8) Caching & storage
+### 8) Caching & storage
 
 - **Embeddings**: `src/rescontact/features/embedding.py` saves per‑sequence `H ∈ ℝ^{L×d}` as `.npz` under `${RESCONTACT_CACHE_DIR}` with keys `(model_id, seq_hash, crop)`.
 - **MSA features**: saved alongside embeddings; when missing, the 21 dims are zeros.
@@ -242,7 +242,7 @@ MMseqs2 finds **similar sequences**; PDB/AFDB provides **structural contacts** f
 
 ---
 
-## 9) Not fine‑tuning, not RAG (FAQ)
+### 9) Not fine‑tuning, not RAG (FAQ)
 
 - **Backbone**: ESM2 is **frozen** (no gradient updates). This is closer to **word2vec/GloVe‑style feature extraction**, but **contextual and per‑residue** (hidden states depend on full sequence).
 - **PDB/mmCIF** is used **only** to build **labels/masks** (contact map at 8 Å), **not** to “decode” embeddings.
@@ -250,7 +250,7 @@ MMseqs2 finds **similar sequences**; PDB/AFDB provides **structural contacts** f
 
 ---
 
-## 10) File map (excerpt)
+### 10) File map (excerpt)
 
 ```
 configs/
@@ -275,7 +275,7 @@ src/rescontact/
 
 ---
 
-## 11) Roadmap / limitations
+### 11) Roadmap / limitations
 
 - **Docker & Cloud** deployment are **future work** (kept **out** of the 7‑day roadmap files).
 - **Streaming PSI** endpoints are planned; current PSI is **batch‑only** via scripts.
