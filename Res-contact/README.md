@@ -1,453 +1,316 @@
-### Res-Contact
-===========
+# Res-Contact — ESM2-based Protein Contact Prediction (Laptop-friendly)
 
-End-to-end pipeline for protein contact map prediction.
-
-It builds 8 Å ground-truth (Cα–Cα) from PDB/mmCIF, embeds sequences with (tiny) ESM2, trains a bilinear distance-biased model, and serves predictions via FastAPI.
-
-MSA is optional with graceful fallbacks: local → jackhmmer → blastp → skip.
+> **One-line**: Freeze ESM2 to get per-residue embeddings, train a tiny head that predicts Cα–Cα ≤ 8 Å contacts from a single sequence. Optional light MSA features and **optional** homology-derived structural priors (templates) can be fused in. PSI drift monitoring is **batch-only** for now.
 
 ---
 
-#### 1) Repo layout
+## 0) Highlights & scope
 
-```
-├── README.md
-├── configs
-│   └── rescontact.yaml
-├── data
-│   ├── fasta
-│   │   └── demo.fasta
-│   ├── msa
-│   └── pdb
-│       ├── test
-│       └── train
-├── notebooks
-│   ├── res_contact_workflow.ipynb
-│   └── visualization.ipynb
-├── optuna_sweep.py
-├── pyproject.toml
-├── requirements.txt
-├── roadmap.txt
-├── scripts
-│   ├── build_baseline.py
-│   ├── check_msa.py
-│   ├── check_msa_blastp.py
-│   ├── eval.py
-│   ├── train.py
-│   └── train_stream.py
-├── src
-│   └── rescontact
-│       ├── __init__.py
-│       ├── api
-│       │   ├── __init__.py
-│       │   └── server.py
-│       ├── data
-│       │   ├── __init__.py
-│       │   ├── dataset.py
-│       │   └── pdb_utils.py
-│       ├── features
-│       │   ├── __init__.py
-│       │   ├── embedding.py
-│       │   ├── msa.py
-│       │   └── pair_features.py
-│       ├── models
-│       │   ├── __init__.py
-│       │   ├── bilinear_scorer.py
-│       │   └── contact_net.py
-│       └── utils
-│           ├── __init__.py
-│           ├── metrics.py
-│           ├── psi.py
-│           └── train.py
-├── tests
-│   ├── conftest.py
-│   ├── test_bilinear_scorer.py
-│   ├── test_msa_providers_mock.py
-│   ├── test_pair_features.py
-│   ├── test_pdb_utils.py
-│   └── test_train_smoke.py
-```
+- **Backbone**: `facebook/esm2_t6_8M_UR50D` (frozen; no fine-tuning) → per-residue H ∈ ℝ^{L×320}
+- **Head**: Linear → ReLU → Dropout → Bilinear + learnable distance-bias (|i−j| bins)
+- **Labels**: PDB/mmCIF Cα distances @ **8 Å** (strict upper triangle; diagonal masked)
+- **MSA**: **Optional** lightweight 1‑D (+21 dims: AA freqs + entropy); zeros when missing
+- **Homology templates**: **Optional** (MMseqs2 + PDB/AFDB) → structural **priors** fused with ESM2 head (no backbone fine‑tuning)
+- **Monitoring**: PSI **batch-only** (no live endpoints yet)
+- **Device**: Apple MPS preferred, CPU fallback; designed for **8‑GB MacBook Air (M3)**
+- **Deployment**: FastAPI present; **containerization & cloud deploy are future work**
 
-#### Data folders (you create them)
+This README is consistent with **Report.docx**, **roadmap.txt**, and **Roadmap.xlsx**:
+- ESM embeddings with **8 Å** contact definition
+- MSA is **optional** (laptop constraint)
+- PSI monitoring is **batch** now, **streaming** planned
+- FastAPI exists; Docker/Cloud deploy listed under **Future work** only
 
-```
-data/
-├─ pdb/
-│ ├─ train/ # *.pdb (or *.cif or *.mmCIF)
-│ └─ test/ # *.pdb (or *.cif or *.mmCIF)
-└─ msa/
-└─ ... # optional local *.a3m files (matched by glob in config)
-```
-#### Cache & outputs (auto-created)
-
-```
-.cache/rescontact/ # ESM NPZ cache (per sequence)
-.cache/rescontact/msatmp/ # temp FASTA when querying jackhmmer/blastp
-checkpoints/ # saved model weights
-logs/ # (placeholder)
-```
 ---
-#### 2) Installation (Mac, Python 3.10–3.12)
 
-> From repo root:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
-Install PyTorch (CPU/MPS build; MPS ships with macOS wheels):
+## 1) Install
 
 ```bash
-pip install --upgrade pip
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-Install remaining deps:
-```
+# Recommended: a fresh conda/venv
+conda create -n rescontact python=3.11 -y
+conda activate rescontact
 
-```bash
 pip install -r requirements.txt
+# If you use Optuna sweeps:
+pip install optuna sqlalchemy
+
+# Apple MPS friendliness (optional)
+export PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0
 ```
-  Note (ESM): fair-esm pulls model weights at first use. Embeddings are cached on disk.
 
----
-#### 3) Configure
-- Edit configs/rescontact.yaml if needed:
-
-- paths.train_dir / paths.test_dir: where PDB(/mmCIF) live
-
-- labels.contact_threshold_angstrom: 8.0 by default
-
-- features.use_msa: true tries MSA; missing tools/DBs are skipped gracefully
-
-- features.msa.local_glob: pattern for local *.a3m
-
-- features.msa.jackhmmer / blastp: set provider params if available
-
-- model.esm_model: facebook/esm2_t6_8M_UR50D (tiny)
-
-- api: FastAPI host/port
-
-- Monitoring (PSI):
-
-```yaml
-monitoring:
-  enabled: true
-  drift_method: "psi"
-  psi_bins: 10
-  psi_warn: 0.10
-  psi_alert: 0.20
-  baseline_path: "monitor/baseline.json"
-  features:
-    - name: "seq_len"      # numeric
-      kind: "numeric"
-    - name: "prob_scores"  # L×L upper triangle contact probabilities
-      kind: "numeric"
-    - name: "pos_distance" # |i-j| among predicted positives
-      kind: "numeric"
-    - name: "emb_norms"    # per-residue embedding norms
-      kind: "numeric"
-    - name: "msa_coverage" # fraction of non-zero in last 21 dims (MSA)
-      kind: "numeric"
-```
----
-#### 4) Prepare data
-- Place training structures under data/pdb/train/ and test structures under data/pdb/test/:
-
-```bash
-data/pdb/train/106M.pdb
-data/pdb/train/109L.pdb
-data/pdb/train/111M.pdb
-..
-data/pdb/test/1BB3.pdb
-data/pdb/test/1BH2.pdb
-data/pdb/test/1DJA.pdb
-...
-```
-  - Ground truth is computed on the fly as 8 Å Cα–Cα distance map (symmetric, diagonal zeros).
-  - Multimers: both intra-chain and (if enabled) inter-chain examples are handled (monomer/dimer/multimer).
-
-  - Optional local MSAs:
-
-```bash
-data/msa/myprotein_XXXX.a3m
-```
-  - v0.1 detects MSA presence; MSA feature integration is optional and budgeted.
----
-#### 5) Train (0.8/0.2 split on train set)
-```bash
-python scripts/train.py --config configs/rescontact.yaml
-```
-  - Uses tiny ESM2; embeddings cached under .cache/rescontact
-
-  - Batch size = 1 to avoid L×L padding blow-ups (M3-friendly)
-
-  - Mixed precision: disabled automatically on CPU/MPS
-
-  - Early stopping on validation loss
-
-  - Sample log:
-
-```ini
-[epoch 3] train=0.4912  val=0.5053  P@L=0.417  ROC=0.731  F1=0.544
-```
-6) Evaluate (on test set)
-```bash
-python scripts/eval.py \
-  --config configs/rescontact.yaml \
-  --ckpt checkpoints/model_best.pt \
-  --split test
- ```
-  - Outputs JSON with P@L, ROC-AUC, F1@threshold.
-
-#### 6) Inference
-  - A) FastAPI server 
-  Start server:
-
-```bash
-uvicorn rescontact.api.server:app --host 0.0.0.0 --port 8000
-```
-  - Predict from a raw sequence:
-
-```bash
-curl -s -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"sequence":"ACDEFGHIKLMNPQRSTVWY"}' \
-  | jq .
-```
-  - Predict from a PDB(/mmCIF) path (server derives sequence):
-
-```bash
-curl -s -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"pdb_path":"data/pdb/test/3A4Z.pdb","threshold":0.5}' \
-  | jq .
+**Note (macOS / MPS):**
+- If you hit `NotImplementedError: aten::triu_indices on MPS`, enable CPU fallback for that op:
+  ```bash
+  export PYTORCH_ENABLE_MPS_FALLBACK=1
   ```
-  - The response contains a base64-encoded NPZ with:
+- If `torchvision` warns about `libjpeg`, you may ignore unless you use `torchvision.io`.
 
-  - probs : L×L probabilities
+**Note (typing_extensions vs tensorflow-macos):**
+- If you upgrade `typing_extensions` for SQLAlchemy/Optuna and see conflicts with `tensorflow‑macos`, keep the sweep in a **separate env** to avoid pinning issues.
 
-  - binary : L×L uint8 (thresholded)
-
-  - Decode the NPZ (Python client):
-
-```python
-import base64, io, numpy as np, requests
-r = requests.post("http://localhost:8000/predict", json={"sequence":"ACDEFGHIKLMNPQRSTVWY"})
-b = base64.b64decode(r.json()["npz_b64"])
-npz = np.load(io.BytesIO(b))
-probs, binary = npz["probs"], npz["binary"]
-print(probs.shape, binary.sum())
-```
-  - Optional helper to save shapes quickly:
-
-```bash
-cat > check_npz.py <<'PY'
-import base64, sys, numpy as np, json
-b64 = json.loads(sys.stdin.read())["npz_b64"]
-with open("preds.npz","wb") as f: f.write(base64.b64decode(b64))
-d = np.load("preds.npz")
-print("probs", d["probs"].shape, "binary", d["binary"].shape)
-PY
-
-curl -s -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"sequence":"ACDEFGHIKLMNPQRSTVWY"}' | python check_npz.py
-```
-
-B) Direct Python (no server)
-```python
-import torch, numpy as np
-from rescontact.features.embedding import ESMEmbedder
-from rescontact.models.contact_net import BilinearContactNet
-
-seq = "ACDEFGHIKLMNPQRSTVWY"
-device = "mps" if torch.backends.mps.is_available() else "cpu"
-embedder = ESMEmbedder("esm2_t6_8M_UR50D", "./.cache/rescontact", device)
-emb = torch.from_numpy(embedder.embed(seq))
-model = BilinearContactNet(embed_dim=320, hidden_dim=256, distance_bias_max=512)
-ckpt = torch.load("checkpoints/model_best.pt", map_location="cpu")
-model.load_state_dict(ckpt.get("state_dict") or ckpt.get("model") or ckpt)
-model.eval()
-with torch.no_grad():
-    logits = model(emb)          # supports [L,D] or [1,L,D]
-    if logits.ndim == 3: logits = logits.squeeze(0)
-    probs = torch.sigmoid(logits).numpy()
-binary = (probs >= 0.5).astype(np.uint8)
-print(probs.shape, binary.sum())
-```
 ---
-#### 7) Monitoring (PSI drift) — **Batch only (current)** 
-This repo currently ships **batch** monitoring scripts (no live server endpoints in this version of `server.py`).
 
-##### What’s monitored
-- `seq_len` — distribution of sequence lengths `L`
-- `prob_scores` — distribution of predicted probabilities on the masked upper triangle (i<j)
-- `pos_distance` — distribution of `|i−j|` among **predicted positives** (≥ threshold)
-- `emb_norms` — per-residue ESM embedding norms
-- `msa_coverage` — fraction of non-zero entries in the last 21 dims (0 for ESM-only inputs)
+## 2) Repository layout (key parts)
 
-PSI is computed vs a **fixed baseline** using quantile bins.
-Thresholds (configurable in `configs/rescontact.yaml`):
-- **PSI ≤ 0.10 = stable**, **0.10–0.25 = slight shift**, **0.25–0.50 = moderate shift**, **> 0.50 = major shift**.
-
-1) Build a baseline (once)
-```bash
-PYTHONPATH=src python scripts/build_baseline.py \
-  --config configs/rescontact.yaml \
-  --out monitor/baseline.json \
-  --max_examples 200
 ```
----
-#### 8) MSA (optional, safe fallbacks)
-  - Config: features.use_msa: true
-  Order: local .a3m → jackhmmer → blastp → skip
-  
-  - Local: put files under data/msa/ matching local_glob (e.g., **/*.a3m)
-  
-  - jackhmmer: set provider params in YAML; if missing/unavailable, skipped
-  
-  - blastp: same; if unavailable, skipped
-  
-  - For real-time serving, keep ESM-only by default; use precomputed MSA features for batch/scoring pipelines.
----
-#### 9) Mac M3 tips (8 GB)
-  - Keep training.batch_size = 1 (default)
-
-  - Use tiny ESM2 (esm2_t6_8M_UR50D)
-
-  - Inter-chain contacts increase L; if memory is tight, set labels.include_inter_chain: false
-
-  - Embeddings are cached; subsequent runs are much lighter
-
-  - If you see MPS oddities, set training.mixed_precision: false in YAML
----
-#### 10) Troubleshooting
-“Vim E212: Can't open file for writing”
-Create folders and ensure write perms:
-
-```bash
-mkdir -p src/rescontact/api && chmod u+w src/rescontact/api
+Res-contact/
+├─ configs/
+│  ├─ rescontact.yaml                 # default config (ESM-only w/ optional MSA)
+│  └─ rescontact.tuned.yaml           # (optional) tuned config
+├─ sweeps/
+│  ├─ rescontact.db                   # Optuna sqlite study (after running)
+│  └─ *.tuned.yaml                    # saved best configs (after sweeps)
+├─ scripts/
+│  ├─ train.py                        # train (full-grid head) — uses BCEWithLogits
+│  ├─ eval.py                         # eval & metrics (PR/ROC/F1; optional P@L)
+│  ├─ build_baseline.py               # PSI baseline (quantile bins on train)
+│  ├─ monitor_eval.py                 # compute PSI & histos per split (batch)
+│  ├─ retrieve_homologs.py            # (optional) MMseqs2 retrieval
+│  ├─ build_template_priors.py        # (optional) PDB/AFDB priors from homologs
+│  └─ fuse_priors.py                  # (optional) visualize/inspect priors
+├─ src/rescontact/
+│  ├─ api/server.py                   # FastAPI app (/predict, /visualize) — batch PSI future
+│  ├─ data/loader.py                  # PDB/mmCIF parsing; masks & labels @ 8Å
+│  ├─ features/embedding.py           # ESM2 embedding cache (frozen backbone)
+│  ├─ model/head.py                   # Linear→ReLU→Dropout→Bilinear + dist-bias
+│  ├─ templates/                      # (optional) homology templates subsystem
+│  │  ├─ mmseqs.py                    # wrapper for MMseqs2
+│  │  ├─ mapping.py                   # hit→query residue index mapping
+│  │  ├─ features.py                  # build distance/contact prior channels
+│  │  ├─ fuse.py                      # fusion (logit_blend / feature_concat)
+│  │  └─ template_db.py               # helpers to find/open PDB/AFDB files
+│  └─ utils/metrics.py                # PR-AUC, ROC-AUC, F1, (optional P@L)
+├─ .cache/rescontact/                 # embedding & feature caches
+├─ reports/                           # PSI json/png artifacts (batch)
+└─ README.md
 ```
-  - fair-esm import error: ensure pip install fair-esm (included in requirements.txt)
 
-  - Slow first epoch: ESM embeddings are computed and cached; later epochs reuse cache
-
-  - Model tensor shape issues:
-  Serving path accepts both [L,D] and [1,L,D]. The API’s model wrapper avoids .t() on 3-D tensors.
 ---
-#### 11) Run end-to-end quickstart
- Config example
+
+## 3) Configuration (ESM-only default)
+
 ```yaml
-labels:
-  contact_threshold_angstrom: 8.0
-  include_inter_chain: true
-
-training:
-  epochs: 20
-  batch_size: 1
-  lr: 1.5e-3
-  patience: 5
-
+# configs/rescontact.yaml (snippet)
 model:
   esm_model: facebook/esm2_t6_8M_UR50D
   embed_dim: 320
-  hidden_dim: 256
-  distance_bias_max: 512
+  head_hidden: 256
+  dropout_p: 0.1
+  dist_bias_bins: 512
 
 features:
-  use_msa: false
-  msa:
-    local_glob: data/msa/**/*.a3m
-    jackhmmer_remote:
-      enabled: true
-      db: uniprotrefprot
-      email: you@example.com
-      timeout_s: 600
-      poll_every_s: 5
-      max_seqs: 64
-    blastp:
-      enabled: true
-      db: swissprot
-      hitlist_size: 64
-      expect: "1e-2"
-      timeout_s: 600
-      max_seqs: 64
-    max_seqs: 64
+  use_msa: false          # if true and available, +21 dims (freqs+entropy)
+  msa_max_seqs: 256       # caps if you enable MSA retrieval
+  cache_dir: .cache/rescontact
 
-api:
-  framework: fastapi
-  host: 0.0.0.0
-  port: 8000
+data:
+  pdb_root: data/pdb      # train/val/test structure roots
+  max_len_per_chain: 600  # crop long chains to fit RAM
+  include_inter_chain: true
 
-monitoring:
-  enabled: true
-  drift_method: psi
-  psi_bins: 10
-  psi_warn: 0.10
-  psi_alert: 0.20
-  baseline_path: monitor/baseline.json
+train:
+  batch_size: 1
+  lr: 1.5e-3
+  weight_decay: 1e-4
+  epochs: 20
+  early_stop_patience: 5
+  pos_weight: 10.0        # optional positive up-weighting
+
+eval:
+  threshold: 0.50         # decision threshold for F1 (PR/ROC are threshold-free)
+  report_pal: false       # P@L is optional (prefer long-range P@k in future)
+
+monitor:
+  psi:
+    enabled: true         # batch-only
+    bins: 20
+    baseline_path: monitor/baseline.json
 ```
-0) setup
+
+**Environment knobs** you may set:
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install --upgrade pip
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements.txt
+export MAX_LEN_PER_CHAIN=600
+export RESCONTACT_VERBOSE=1
+export PYTHONUNBUFFERED=1
+export PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0
+export PYTORCH_ENABLE_MPS_FALLBACK=1   # only if you hit unsupported MPS ops
 ```
-1) put PDBs
+
+---
+
+## 4) Quickstart
+
+### 4.1 Train (ESM-only; MSA optional)
 ```bash
-mkdir -p data/pdb/train data/pdb/test
-# copy your *.pdb / *.cif files accordingly
+PYTHONPATH=src python scripts/train.py \
+  --config configs/rescontact.yaml
 ```
-2) train (splits 0.8/0.2 of train internally)
+
+### 4.2 Evaluate
 ```bash
-python scripts/train.py --config configs/rescontact.yaml
+PYTHONPATH=src python scripts/eval.py \
+  --config configs/rescontact.yaml \
+  --ckpt checkpoints/model_best.pt \
+  --split test \
+  --max_test_examples 500
 ```
-3) evaluate on test
+
+**Metrics reported**: PR‑AUC, ROC‑AUC, F1 on masked upper triangle (i<j).  
+**Note on P@L**: Computed over all separations it can be inflated by near-diagonal pairs; prefer long‑range P@k in future.
+
+---
+
+## 5) Monitoring (PSI drift) — batch only
+
+Build the **baseline** (quantile bins + proportions **from train**):
 ```bash
-python scripts/eval.py --config configs/rescontact.yaml --ckpt checkpoints/model_best.pt --split test
-```
-4) serve API
-```bash
-uvicorn rescontact.api.server:app --host 0.0.0.0 --port 8000
-```
-5) monitor (PSI — batch only)
-```bash
-# build baseline once
 PYTHONPATH=src python scripts/build_baseline.py \
   --config configs/rescontact.yaml \
   --out monitor/baseline.json \
   --max_examples 200
-
-# generate some requests
-curl -s -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"sequence":"ACDEFGHIKLMNPQRSTVWY"}' | jq .
-
-# fasta file
-curl -s -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"fasta_path":"data/fasta/demo.fasta"}' | jq .
-
-# pdb file
-curl -s -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"pdb_path":"data/pdb/test/1BB3.pdb"}' | jq . 
-
 ```
+
+After each eval, write PSI & plots under `reports/`:
+```bash
+PYTHONPATH=src python scripts/monitor_eval.py \
+  --config configs/rescontact.yaml \
+  --split val \
+  --baseline monitor/baseline.json
+```
+
+Artifacts per run:
+- `reports/psi_<split>_<ts>.json` – PSI value, category, live proportions, metadata
+- `reports/score_<split>_<ts>.png` – probability histogram
+- `reports/length_<split>_<ts>.png` – sequence length distribution
+- `reports/sep_<split>_<ts>.png` – |i−j| separation distribution
+
+**Thresholds** (configurable): PSI ≤ 0.10 **stable**, 0.10–0.25 **watch**, > 0.25 **drift**.  
+**Streaming PSI**: *future work* (not in this server version).
+
 ---
-#### 12) Production notes
 
-  - Online inference: serve ESM-only; use MSA only if precomputed features exist
+## 6) Hyperparameter tuning (Optuna) — optional
 
-  - Batch pipelines: run Jackhmmer/BLAST locally and persist A3M/feature NPZs
+```bash
+export MAX_LEN_PER_CHAIN=900
+export PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0
 
-  - Model zoo: keep both checkpoints/model_esm.pt and checkpoints/model_msa.pt
+python optuna_sweep.py \
+  --config configs/rescontact.yaml \
+  --script scripts/train.py \
+  --study sqlite:///sweeps/rescontact.db --study-name esm8m_local \
+  --trials 12 --epochs 24 --batch-size 1 \
+  --min-train-examples 1000 --val-split 0.8 \
+  --tune-hidden   --space-hidden 128 160 192 256 \
+  --tune-lr       --space-lr 0.0010 0.0012 0.0015 0.0018 \
+  --tune-dropout  --space-dropout 0.0 0.1 0.2 \
+  --tune-threshold --thresh-min 0.28 --thresh-max 0.38 --thresh-step 0.01 \
+  --objective bf1 --pruner none \
+  --logs-dir sweeps/logs \
+  --save-best-config sweeps/rescontact.tuned.yaml
+```
 
-  - Cache hygiene: maintain separate caches .cache/rescontact_esm/ vs .cache/rescontact_msa/; add LRU/TTL cleanup
+> If SQLAlchemy requires newer `typing_extensions`, consider running sweeps in a **separate env** to avoid `tensorflow‑macos` pin conflicts.
 
-  - Observability: expose /psi, /metrics, /admin/reset_psis; scrape /metrics with Prometheus and alert on PSI category/value. 
+---
 
-  - Streaming trainer (future): O(P) per step (all positives + sampled negatives); enable via config.
+## 7) Optional: Homology‑augmented structural priors (templates)
 
-  - **Extensibility:** Containerize with Docker and deploy to **Cloud Run** (or Vertex AI/SageMaker/Azure ML/Kubernetes).
+**Goal**: Re‑use ESM2 embeddings **and** pull structural priors from **homologous** proteins (PDB/AFDB) found via MMseqs2. This is **not** fine‑tuning and **not** RAG; the backbone stays frozen, and we fuse priors with the head.
+
+### 7.1 Requirements
+- MMseqs2 installed (`mmseqs` on PATH)
+- Local PDB mirror or RCSB fetch; AFDB `.cif`/`.pdb` via download
+- Minimal disk: template cache under `data/templates/cache/`
+
+### 7.2 Enable in config
+```yaml
+templates:
+  enabled: true
+  mmseqs:
+    mode: easy-search          # or prefetched index
+    db: data/templates/mmseqs/uniref90
+    max_hits: 8
+    min_ident: 0.3
+    min_cov: 0.6
+  sources:
+    pdb: true
+    afdb: true
+  features:
+    use_distogram: true        # discretized dist bins to prior channels
+    use_contact: true          # binary/soft contact prior
+    use_confidence: true       # pLDDT/PAE weights if AFDB available
+  fusion:
+    method: logit_blend        # 'logit_blend' (simple) or 'feature_concat'
+    alpha: 0.35                # blend weight for template logits
+  cache_dir: data/templates/cache
+```
+
+### 7.3 Pipeline
+1) **Retrieve homologs**  
+   ```bash
+   PYTHONPATH=src python scripts/retrieve_homologs.py \
+     --fasta data/queries/query.fasta \
+     --out data/templates/mmseqs_hits.json \
+     --db data/templates/mmseqs/uniref90
+   ```
+2) **Build priors** (download/open PDB/AFDB, map residues, make NPZ priors)  
+   ```bash
+   PYTHONPATH=src python scripts/build_template_priors.py \
+     --hits data/templates/mmseqs_hits.json \
+     --out data/templates/cache
+   ```
+3) **Train with fusion enabled** (head consumes ESM2 + priors)  
+   ```bash
+   PYTHONPATH=src python scripts/train.py \
+     --config configs/rescontact.yaml
+   ```
+4) **Eval** as usual; PSI/metrics pipelines unchanged.
+
+> On a laptop: keep `max_hits` small (e.g., 4–8), cache aggressively, and prefer `logit_blend` first.
+
+---
+
+## 8) Serving (local)
+
+Start the FastAPI app:
+```bash
+PYTHONPATH=src uvicorn src.rescontact.api.server:app --host 0.0.0.0 --port 8000
+```
+
+Endpoints:
+- `POST /predict` — sequence or FASTA path → probabilities (optionally binary via threshold)
+- `GET  /visualize` — returns a PNG heatmap for quick inspection
+- `GET  /healthz` — lightweight health check
+
+> PSI **streaming endpoints** are **future work**; current PSI is **batch-only** via scripts above.  
+> **Containerization & cloud deploy (GCP/AWS)** are **future work** and intentionally omitted from roadmap files.
+
+---
+
+## 9) FAQ
+
+- **Is this fine‑tuning?** No. ESM2 is **frozen** and used as a feature extractor.
+- **Is this RAG?** No. PDB/AFDB priors are precomputed features, not retrieval‑augmented generation.
+- **Why cache embeddings?** ESM2 forward is the most expensive step; cache by `(model_id, seq_hash, crop)`.
+- **Why is P@L near 1.0 sometimes?** Without long‑range filtering, near‑diagonal pairs dominate. Prefer long‑range P@k later.
+
+---
+
+## 10) Troubleshooting (quick)
+
+- `aten::triu_indices` not on MPS → `export PYTORCH_ENABLE_MPS_FALLBACK=1`
+- `typing_extensions` conflicts → run Optuna/sweeps in a separate env
+- Long chains OOM → lower `max_len_per_chain`, or trim long chains
+- Embedding time too long → warm the cache first, then train/eval
+
+---
+
+## 11) License
+MIT (or your org’s standard).
+
+---
+
+## 12) Citations
+- Rives et al., *Biological structure and function emerge from scaling unsupervised learning to 250 million protein sequences*. (ESM)
+- Jumper et al., *Highly accurate protein structure prediction with AlphaFold*. (AFDB references)
