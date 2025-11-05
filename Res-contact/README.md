@@ -121,7 +121,7 @@ export MAX_LEN_PER_CHAIN=600      # tune for memory; 600 works on 8‑GB
 
 ---
 
-# 5) Training & evaluation
+##### 5) Training & evaluation
 
 **Train**
 ```bash
