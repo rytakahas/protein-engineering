@@ -62,7 +62,7 @@ else:
           "and ensure your dataset.py pads zeros when providers are unavailable.")
 
 # --- Extra: probe first up-to-3 items with precise timings ---
-N = min(3, len(ds))
+N = min(10, len(ds))
 for i in range(N):
     t0 = perf_counter()
     itm = ds[i]
