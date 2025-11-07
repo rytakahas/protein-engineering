@@ -1,5 +1,5 @@
 
-# protein-engineering — end‑to‑end sequence→structure→mutation ranking
+### protein-engineering — end‑to‑end sequence→structure→mutation ranking
 
 This monorepo hosts an end‑to‑end, laptop‑friendly pipeline for protein engineering:
 given **sequence(s)** and optional **experimental data**, we derive **structure‑aware contact/ distance priors** (ResContact), build a **residue‑interaction network** (ResIntNet), and **rank distal mutation candidates** with a blend of **GNN scoring** and **memory/PRS centrality**. Optionally, a SeqML package fine‑tunes sequence models to predict mutant efficacy.
@@ -8,7 +8,7 @@ given **sequence(s)** and optional **experimental data**, we derive **structure�
 
 ---
 
-## A. Repository layout (monorepo)
+#### A. Repository layout (monorepo)
 
 ```
 protein-engineering/
@@ -42,7 +42,7 @@ protein-engineering/
 
 ---
 
-## B. End‑to‑end flow
+#### B. End‑to‑end flow
 
 1) **ResContact** (packages/rescontact)
    - Input: FASTA (+ local PDB cache), remote MSA via MMseqs API.
@@ -66,30 +66,30 @@ protein-engineering/
 
 ---
 
-## C. Remote MSA (MMseqs) + ESM2 + Priors (quick recap)
+#### C. Remote MSA (MMseqs) + ESM2 + Priors (quick recap)
 
 ```bash
-# 1) FASTA → ESM2 embeddings (tiny model OK on M‑series)
+1) FASTA → ESM2 embeddings (tiny model OK on M‑series)
 python packages/rescontact/scripts/embed_esm2.py \
   --fasta data/fasta/10_subset.fa \
   --out-dir data/emb/esm2_t12 \
   --model esm2_t12_35M_UR50D
 
-# 2) Remote MSA (rate-limited; no local install required)
+2) Remote MSA (rate-limited; no local install required)
 python packages/rescontact/scripts/run_msa_batch.py \
   --fasta data/fasta/10_subset.fa \
   --msa-out-dir data/msas \
   --server-url https://a3m.mmseqs.com \
   --db uniref --qps 0.15
 
-# 3) MSA → compact features (depth, PSSM/PSFM, MI/APC summaries)
+3) MSA → compact features (depth, PSSM/PSFM, MI/APC summaries)
 python packages/rescontact/scripts/build_msa_features.py \
   --msa-dir data/msas \
   --esm-emb-dir data/emb/esm2_t12 \
   --out-dir data/msa_features \
   --float16
 
-# 4) Template priors (PDB/AFDB) → (L×L×B) distances
+4) Template priors (PDB/AFDB) → (L×L×B) distances
 export RESCONTACT_TEMPLATE_DIR=data/templates
 python packages/rescontact/scripts/build_template_priors.py \
   --hits data/templates/mmseqs_hits.json \
@@ -107,7 +107,7 @@ Outputs you’ll reuse in ResIntNet:
 
 ---
 
-## D. **Supervised training with distal‑mutation datasets** (NEW)
+#### D. **Supervised training with distal‑mutation datasets** (NEW)
 
 You **can** supervise the GNN ranking using curated distal‑mutation sets (e.g., literature compilations). The idea:
 
@@ -117,7 +117,7 @@ You **can** supervise the GNN ranking using curated distal‑mutation sets (e.g.
 
 > ⚠️ Always check the dataset’s license/terms. Keep raw third‑party data out of the repo; add a small downloader/normalizer instead.
 
-### D.1 Normalized CSV schema
+##### D.1 Normalized CSV schema
 
 Create `data/supervision/distal_mutations.csv`:
 
@@ -135,7 +135,7 @@ Create `data/supervision/distal_mutations.csv`:
 
 **Residue label aggregation:** if any mutation at a residue is curated as distal/beneficial (per your criterion), mark the residue `label=1`. Otherwise, sample negatives from residues not known positive (optionally exclude active‑site residues or zones too close to the binding site to focus on distal candidates).
 
-### D.2 Graph construction (per protein)
+##### D.2 Graph construction (per protein)
 
 - **Nodes (L):** residues 1..L
   - `x_node = concat([ESM2_i, MSA_i, optional physchem_i])`
@@ -144,7 +144,7 @@ Create `data/supervision/distal_mutations.csv`:
   - Edge attrs: `[1/dist, one_hot(dist_bin), template_agreement, …]`
 - **Labels:** `y_i ∈ {0,1}` from `distal_mutations.csv` (missing → mask as unlabeled during training).
 
-### D.3 Objective choices
+##### D.3 Objective choices
 
 - **Binary classification** (default): per‑residue BCEWithLogitsLoss with **class weights** (positives are rare).
 - **Pairwise ranking**: sample (pos, neg) pairs within a protein; BPR/hinge loss to push positive residues above negatives.
@@ -156,7 +156,7 @@ Create `data/supervision/distal_mutations.csv`:
   - `data/supervision/splits.json`: `{ "train": [...], "val": [...], "test": [...] }`
 - Or assign in the CSV `split` column.
 
-### D.5 Minimal training CLI
+##### D.5 Minimal training CLI
 
 Prepare tensors/graphs:
 ```bash
@@ -195,7 +195,7 @@ python packages/resintnet/scripts/rank_mutations.py \
 
 Outputs: `outputs/ranks/{protein_id}.csv` with `residue_index_seq, gnn_score, prs, final_score` (descending).
 
-### D.6 Blending with PRS/Memory
+##### D.6 Blending with PRS/Memory
 
 - Compute **PRS centrality** per residue (packages/resintnet has a `prs.py` util).
 - Normalize to `[0,1]` across a protein.
@@ -209,30 +209,8 @@ Outputs: `outputs/ranks/{protein_id}.csv` with `residue_index_seq, gnn_score, pr
 
 ---
 
-## E. Notes on resources & licensing
+#### E. Notes on resources & licensing
 
 - **Third‑party datasets**: keep outside the repo and provide a download/prepare script; verify license allows model training.
 - **Apple Silicon**: prefer smaller ESM2 (`t12_35M`), float16 storage, shallow GNNs; avoid giant minibatches.
 - **Reproducibility**: set seeds; use cross‑protein splits; log config in `runs/`.
-
----
-
-## F. Roadmap (short)
-
-- [ ] Package‑level READMEs with exact CLI examples
-- [ ] Add `prepare_graphs.py`, `prs.py`, `train_gnn.py`, `rank_mutations.py`
-- [ ] Optional: pairwise ranking loss and multitask head
-- [ ] Minimal Dockerfiles for laptop/CPU usage
-
----
-
-### Quick FAQ
-
-**Q: Can I train only with PRS (no labels)?**  
-A: Yes—PRS/Memory yields an unsupervised ranking. Supervised GNN adds signal from curated distal mutations to learn transferable motifs.
-
-**Q: How do I map PDB residue numbers to sequence indices?**  
-A: Use the `rescontact.data.pdb_utils` helpers to align SEQRES/ATOM to your FASTA so ESM2/MSA/priors and labels share the same 1‑based sequence index.
-
-**Q: Pairwise ranking vs classification?**  
-A: Start with weighted BCE (simpler, stable). If positives are very sparse per protein, pairwise BPR can improve top‑K precision.
