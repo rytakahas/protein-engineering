@@ -1,362 +1,270 @@
-# protein-engineering
+# protein-engineering — E2E mutation hotspot discovery (sequence ↔ structure)
 
-> End‑to‑end toolkit for **protein engineering** and **small‑molecule/enzyme design**.  
-> Input: sequences + experimental datasets.  
-> Output: **hotspots (distal mutation candidates)** and ranked variants, using **structure/contact priors**, **residue‑interaction networks**, and **sequence‑level ML**.
+This monorepo targets an **end‑to‑end pipeline** for protein & enzyme engineering:
+given **sequence(s)** + **experimental datasets**, we predict **distal mutation hotspots**
+guided by **structure/contact information** and **sequence models**, then rank candidates for wet‑lab validation.
 
-This repository is a **monorepo** with three main packages plus thin orchestration pipelines:
+> High‑level flow  
+> **Sequences → (Templates + ESM2 + MSA) → Contact/Distance Priors → Residue‑Interaction Graph → PRS/Memory + GNN ranking → Candidate mutations → Sequence‑level ML (fine‑tuned LLMs) → Predicted efficacy**
+
+---
+
+## Repository layout (monorepo)
 
 ```
+protein-engineering/
 ├── README.md
-├── archive
-│   └── msa_utils/
-│       ├── Dockerfile
-│       ├── README.md
-│       └── run_deepmsa.sh
-├── configs/
-├── docker/
+├── archive/
+│   └── msa_utils/                 # legacy scripts (kept for reference)
+├── configs/                       # repo-level defaults (paths, binning, registry)
+├── docker/                        # base images & compose
 ├── packages/
-│   ├── rescontact/              # Template priors (PDB/AFDB), ESM2 embeds, MSA features → contact/distance priors
+│   ├── rescontact/                # contact/distance priors (Templates, ESM2, MSA)
 │   │   ├── README.md
 │   │   ├── notebooks/
-│   │   │   ├── res_contact_workflow.ipynb
-│   │   │   ├── res_contact_workflow_opt.ipynb
-│   │   │   ├── res_contact_workflow_opt2.ipynb
-│   │   │   └── res_contact_workflow_opt_msa.ipynb
 │   │   ├── pyproject.toml
 │   │   └── src/rescontact/
-│   │       ├── __init__.py
 │   │       ├── data/pdb_utils.py
-│   │       ├── features/
-│   │       │   ├── embedding.py
-│   │       │   ├── msa.py
-│   │       │   └── pair_features.py
+│   │       ├── features/          # embedding.py, msa.py, pair_features.py
 │   │       ├── models/contact_net.py
-│   │       └── utils/{metrics.py, train.py}
-│   ├── resintnet/               # Residue interaction networks + memory‑theory mutation ranking
+│   │       └── utils/             # metrics.py, train.py
+│   ├── resintnet/                 # residue-interaction network + hotspot ranking
 │   │   ├── README.md
 │   │   ├── notebook/
-│   │   │   ├── README.md
-│   │   │   ├── prot_rin_gnn.ipynb
-│   │   │   └── prot_rin_mem.ipynb
 │   │   └── pyproject.toml
-│   └── seqml/                   # Sequence‑level modeling: fitness/efficacy for proposed mutations
+│   └── seqml/                     # sequence-level modeling (mut efficacy/fitness)
 │       ├── README.md
 │       ├── notebook/
-│       │   ├── PT5_xl_ACT.ipynb
-│       │   ├── PT5_xl_GB1.ipynb
-│       │   ├── README.md
-│       │   ├── msa.ipynb
-│       │   ├── protBert_ACT.ipynb
-│       │   └── unirep_ACT.ipynb
 │       ├── prot_api_flask/
-│       │   ├── README.md
-│       │   ├── mutation_predictor.py
-│       │   ├── prot_api_flask.py
-│       │   └── sample_input.json
 │       └── pyproject.toml
-└── pipelines/                   # thin glue/DAGs, no heavy logic
+└── pipelines/                     # thin glue/DAGs; no heavy logic
 ```
 
-> **Note on naming**
-> - Keep **`rescontact`** (don’t rename to “res‑res‑contact”).  
-> - Standardize on **`resintnet`** for residue‑interaction‑network code.  
-> - Remove redundant wrapper folders (e.g., `Res_Int_Net/`, `Seq_MLs/`) over time by migrating code into `src/<package>/`.
+**Why this shape?**
+- Each `packages/*` subdir is an **installable Python package** (with its own tests, configs, Dockerfile).
+- `pipelines/` holds light orchestration (CLI or DAG) that **composes packages** without duplicating logic.
+- `archive/` contains legacy/experimental code kept out of the critical path.
 
 ---
 
-## 1) High‑level workflow
+## Quickstart (Apple Silicon friendly)
 
-```text
-Sequences (+optional experimental labels)
-   │
-   ├─► packages/rescontact
-   │     1) Build structure priors from templates (PDB/AFDB) → distance bins
-   │     2) Get ESM2 embeddings (single‑seq) → L × C
-   │     3) Build MSA features (via mmseqs remote A3M) → profiles, depth
-   │     4) Concatenate features, train ContactNet → P(contact/dist bins)
-   │
-   ├─► packages/resintnet
-   │     5) Build residue‑interaction graph (from contacts/structure)
-   │     6) Rank mutation hotspots using memory/graph signals (GNN/PRS/etc.)
-   │
-   └─► packages/seqml
-         7) Score candidate mutations (LMs, regressors, calibration with assays)
-         8) Feedback loop with new experimental results
-```
-
-### Minimal ASCII of feature flow
-```
-Templates (PDB/AFDB) ─┐
-                      ├─► Priors (L×L×B) → ContactNet
-ESM2 embeddings  ─────┤
-MSA features     ─────┘
-          ContactNet → P(contact/dist) → RIN → mutation ranking → SeqML scoring
-```
-
----
-
-## 2) Getting started
-
-### Dev environment
-- Python **3.11**
-- PyTorch with **MPS** (Apple Silicon) or CUDA
-- Optional: `mmseqs` **remote API** (no local install needed)
+> Recommended: Python **3.11**, PyTorch **2.5+**, CUDA not required on Mac; uses MPS fallback.
 
 ```bash
-# clone
+# 1) Clone
 git clone https://github.com/rtakahas/protein-engineering.git
 cd protein-engineering
 
-# optional: install shared tooling
-pip install -e packages/rescontact
-pip install -e packages/resintnet
-pip install -e packages/seqml
+# 2) Create env
+conda create -y -n pe311 python=3.11
+conda activate pe311
+
+# 3) Install base (editables)
+pip install -e packages/rescontact -e packages/resintnet -e packages/seqml
+
+# (Optional) Apple Metal fallback
+export PYTORCH_ENABLE_MPS_FALLBACK=1
 ```
 
-> **Sparse‑checkout (clone only a subfolder)**  
-> If you only want `packages/rescontact`:
-> ```bash
-> git clone --no-checkout https://github.com/rtakahas/protein-engineering.git
-> cd protein-engineering
-> git sparse-checkout init --cone
-> git sparse-checkout set packages/rescontact
-> git checkout
-> ```
+### Data folders (local, gitignored)
+```
+data/
+  fasta/               # input sequences (.fa)
+  templates/           # mmseqs hits + priors caches
+  emb/                 # ESM2 embeddings (per-L npy)
+  msas/                # A3M files + features
+```
 
 ---
 
-## 3) End‑to‑end (contact priors → hotspots → sequence scoring)
+## Stage A — Contacts/Distance Priors (packages/rescontact)
 
-Below is a lightweight **reference** pipeline using scripts in `rescontact`. Adjust paths as needed.
+This stage builds **structure-aware priors** per query sequence by fusing:
+- **Template alignments** (from PDB/AFDB hits) → distance-bin histograms
+- **ESM2 residue embeddings** (per-position)
+- **MSA‑derived features** (e.g., PSSM/PSFM; optional)
 
-### 3.1 Prepare FASTA from PDB (optional)
+### A1) Prepare FASTA
+If your PDB chains are already parsed, you likely have `data/fasta/_subset.fa`. Otherwise:
 ```bash
-PYTHONPATH=packages/rescontact/src \
-python packages/rescontact/scripts/pdb_to_fasta.py \
+# Example (pseudo): convert PDB/CIF to FASTA
+python -m rescontact.data.pdb_utils \
   --pdb-root data/pdb/train data/pdb/test \
   --out data/fasta/_subset.fa
 ```
 
-### 3.2 Retrieve homologs & template hits (remote mmseqs, A3M endpoint)
+### A2) Remote homology & templates via MMseqs API
+**No ColabFold install required**; we use the public MMseqs/A3M API.
+
 ```bash
-PYTHONPATH=packages/rescontact/src \
-python packages/rescontact/scripts/retrieve_homologs.py \
-  --fasta data/fasta/_subset.fa \
+export RESCONTACT_TEMPLATE_DIR=data/templates
+
+python scripts/retrieve_homologs.py \
+  --fasta data/fasta/10_subset.fa \
   --server-url https://a3m.mmseqs.com \
   --db uniref \
   --max-hits 16 \
   --want-templates \
+  --qps 0.15 --inter-job-sleep 2 --max-retries 8 --timeout 1800 \
+  --flush-every 1 \
   --out data/templates/mmseqs_hits.json
 ```
 
-### 3.3 Build template priors (distance bins, masks)
-```bash
-export RESCONTACT_TEMPLATE_DIR=data/templates
+> Tip: If you hit rate‑limits (HTTP 429), reduce `--qps` and keep `--resume` enabled.
 
-PYTHONPATH=packages/rescontact/src \
-python packages/rescontact/scripts/build_template_priors.py \
+### A3) Build **template priors** (distance bins)
+This aligns selected templates to the query and outputs per‑pair distance probabilities.
+
+```bash
+python scripts/build_template_priors.py \
   --hits data/templates/mmseqs_hits.json \
   --pdb-root data/pdb/train data/pdb/test \
   --out-dir "$RESCONTACT_TEMPLATE_DIR/priors" \
   --structure-source "pdb,afdb" \
   --max-hits-per-query 8 \
   --max-downloads-per-run 50
+# -> writes: data/templates/priors/<QUERY>.npz
+#    keys: priors (L,L,B), bins (B+1), mask (L,L), meta (json)
 ```
 
-**Outputs (per query)**  
-- `priors`: `(L, L, B)` distance‑bin probabilities (normalized)  
-- `bins`: distance bin edges used during training  
-- `mask`: `(L, L)` valid prior region  
-- `meta`: JSON string (query_id, L, templates_used, etc.)  
-- Downloaded PDB/AFDB cached to avoid re‑fetching
-
-### 3.4 Get MSAs (mmseqs remote) and turn into features
+### A4) **ESM2 embeddings**
 ```bash
-# Run remote MSA (A3M + tgz per sequence)
-PYTHONPATH=packages/rescontact/src \
-python packages/rescontact/scripts/run_msa_batch.py \
-  --fasta data/fasta/_subset.fa \
+python scripts/embed_esm2.py \
+  --fasta data/fasta/10_subset.fa \
+  --out-dir data/emb/esm2_t12 \
+  --model esm2_t12_35M_UR50D
+# -> <QUERY>.esm2.npy  shape=(L, C)
+```
+
+### A5) **MSA** (A3M) and features (optional but recommended)
+```bash
+# Download A3M
+python scripts/run_msa_batch.py \
+  --fasta data/fasta/10_subset.fa \
   --msa-out-dir data/msas \
   --server-url https://a3m.mmseqs.com \
   --db uniref \
   --qps 0.15
 
-# Convert A3M → per‑residue features (PSSM/PSFM, MI/APC summaries, depth)
-PYTHONPATH=packages/rescontact/src \
-python packages/rescontact/scripts/build_msa_features.py \
+# Build per‑position MSA features (PSSM/PSFM; depth stats)
+python scripts/build_msa_features.py \
   --msa-dir data/msas \
   --esm-emb-dir data/emb/esm2_t12 \
   --out-dir data/msa_features \
   --float16
-```
 
-### 3.5 Embed with ESM2 (single‑sequence)
-```bash
-PYTHONPATH=packages/rescontact/src \
-python packages/rescontact/scripts/embed_esm2.py \
-  --fasta data/fasta/_subset.fa \
-  --out-dir data/emb/esm2_t12 \
-  --model esm2_t12_35M_UR50D
-```
-
-### 3.6 Concatenate ESM2 + MSA features
-```bash
-PYTHONPATH=packages/rescontact/src \
-python packages/rescontact/scripts/concat_esm2_msa.py \
+# (Optional) Concatenate ESM2 + MSA to a single feature tensor
+python scripts/concat_esm2_msa.py \
   --esm-dir data/emb/esm2_t12 \
   --msa-dir data/msa_features \
   --out-dir data/emb/esm2_t12_plus_msa \
   --mode pad \
   --include-depth \
-  --float16 \
-  --verbose
+  --float16
 ```
 
-### 3.7 Train ContactNet (distance/contact prediction)
-```bash
-PYTHONPATH=packages/rescontact/src \
-python packages/rescontact/scripts/train_contactnet.py \
-  --emb-dir data/emb/esm2_t12_plus_msa \
-  --priors-dir data/templates/priors \
-  --bins-json data/templates/priors/bins.json \
-  --out-dir outputs/rescontact_model \
-  --epochs 50 --lr 3e-4 --batch-size 2 --device mps
-```
+### A6) Train contact/distance model (planned CLI)
+Planned `pipelines/train_rescontact.py` (thin wrapper) to train with:
+- Inputs: `emb_dir` (ESM2 or ESM2+MSA), `priors_dir` (template npz), bin edges
+- Loss: cross‑entropy on distance bins + aux contact loss
+- Splits: protein‑level to avoid leakage
 
-### 3.8 Build Residue Interaction Network (RIN) + rank hotspots
-```bash
-PYTHONPATH=packages/resintnet/src \
-python packages/resintnet/scripts/build_graph.py \
-  --contacts outputs/rescontact_model/preds \
-  --out data/rin/graphs
-
-PYTHONPATH=packages/resintnet/src \
-python packages/resintnet/scripts/rank_mutations.py \
-  --graphs data/rin/graphs \
-  --method mem  \
-  --out data/rin/ranked_mutations.csv
-```
-
-### 3.9 Score variants with SeqML
-```bash
-PYTHONPATH=packages/seqml/src \
-python packages/seqml/scripts/score_variants.py \
-  --wt-fasta data/fasta/wt.fa \
-  --candidates data/rin/ranked_mutations.csv \
-  --train-table data/assays/train.csv \
-  --out data/seqml/scores.csv
-```
-
-> **Feedback loop:** append new assay results to `data/assays/` and re‑train `seqml` for better calibration.
+> For now, see `packages/rescontact/src/rescontact/utils/train.py` to wire your datasets.
 
 ---
 
-## 4) Data conventions
+## Stage B — Residue‑Interaction Network (packages/resintnet)
 
+Build a **graph over residues** using predicted/contact priors &/or a structure model, then rank **distal mutation hotspots** with **memory/PRS** and a **GNN**.
+
+**Planned workflow:**
+1. **Graph build**: nodes = residues, edges weighted by contact prob / distances.  
+   ```bash
+   python -m resintnet.scripts.build_graph \
+     --contacts data/templates/priors \
+     --out data/graphs
+   ```
+2. **PRS/Memory**: compute perturbation response & centrality per residue.
+3. **GNN ranking**: train GraphSAGE/GAT with node/edge features (ESM2, priors).  
+   Output: ranked residues (distal candidates).
+
+### External mutation datasets (for supervision)
+If you use curated distal‑mutation datasets (e.g., literature/third‑party), ensure the **license allows ML training**. Prepare a normalized CSV:
 ```
-data/
-├── fasta/                 # input sequences
-├── pdb/                   # local PDB/AFDB mirrors (optional)
-├── templates/
-│   ├── mmseqs_hits.json   # remote hits (with/without template alignment metadata)
-│   └── priors/            # *.npz with priors, mask, meta, bins.json
-├── msas/                  # *.a3m and *.tgz
-├── emb/
-│   ├── esm2_t12/          # *.esm2.npy (L×C)
-│   └── esm2_t12_plus_msa/ # concatenated features
-└── assays/                # experimental labels / fitness data
+protein_id, pdb_id, chain, position, wt_aa, mut_aa, label_distal, assay, effect_value
 ```
 
-- **Remote MSA (mmseqs)**: No local `colabfold` needed. We call the official A3M server, respecting rate limits.  
-- **ESM2**: Single‑sequence embeddings only (no multiple sequence transformer needed).  
-- **Template priors**: Use both PDB and AFDB, falling back gracefully.
+> Split **by protein** (not by mutation) to avoid optimistic leakage. Evaluate Top‑k precision/recall, AUPRC, and NDCG@k.
 
 ---
 
-## 5) Containerization
+## Stage C — Sequence‑level ML (packages/seqml)
 
-Base images are under `docker/`. Each package can have its own `Dockerfile` or reuse a shared base.
+Fine‑tune sequence models (e.g., ESM2/ProtT5) to score **WT→mutant** efficacy (stability, activity, binding). Support **LoRA/QLoRA** for resource‑friendly finetuning.
 
-Example `docker-compose.yaml` sketch:
-```yaml
-services:
-  rescontact:
-    build:
-      context: .
-      dockerfile: docker/base.Dockerfile
-    volumes:
-      - .:/workspace
-    working_dir: /workspace
-    command: bash -lc "pip install -e packages/rescontact && pytest packages/rescontact"
-  resintnet:
-    build:
-      context: .
-      dockerfile: docker/base.Dockerfile
-    volumes:
-      - .:/workspace
-    working_dir: /workspace
-    command: bash -lc "pip install -e packages/resintnet && pytest packages/resintnet"
-  seqml:
-    build:
-      context: .
-      dockerfile: docker/base.Dockerfile
-    volumes:
-      - .:/workspace
-    working_dir: /workspace
-    command: bash -lc "pip install -e packages/seqml && pytest packages/seqml"
+**Inputs:**
+- Mutant sequences or edits (e.g., `A123C`) and optional structural features (from Stage B)
+- Experimental labels (ΔΔG, activity, etc.)
+
+**Outputs:**
+- Regression/class scores per mutation
+- Re‑ranking of hotspot candidates
+
+---
+
+## Putting it together: one‑shot pipeline
+
+```
+pipelines/e2e_propose_mutations.py
+  1) A2–A5: build priors + embeddings + MSA
+  2) B1–B3: construct RIN & rank distal hotspots
+  3) C*: score WT→mutants; output top‑N list + rationale
 ```
 
 ---
 
-## 6) Makefile helpers (suggested)
-```make
-.PHONY: setup fmt lint test
+## Docker & Reproducibility
 
-setup:
-\tpip install -e packages/rescontact -e packages/resintnet -e packages/seqml
-\tpip install -r requirements-dev.txt
-
-fmt:
-\truff format
-\truff check --fix
-
-lint:
-\truff check
-\tmypy packages
-
-test:
-\tpytest -q
+Each package can define its own `Dockerfile` (pinning Python & deps). Suggested base:
+```
+docker/
+  base.Dockerfile   # uv/pip-tools, torch cpu/mps, biopython>=1.83
+  docker-compose.yml
 ```
 
----
-
-## 7) Roadmap
-
-- [ ] Migrate remaining code from legacy wrappers into `src/<pkg>/`
-- [ ] Add `resintnet/src` scripts (`build_graph.py`, `rank_mutations.py`)
-- [ ] Publish example configs in `configs/` (binning, thresholds, server QPS)
-- [ ] Add CI with smoke notebooks and unit tests
-- [ ] Optional local MMseqs & AFDB cache containers (for offline runs)
-- [ ] Integration pipeline under `pipelines/`:
-  - `train_rescontact.py`, `train_seqml.py`, `e2e_propose_mutations.py`
+### Known version pitfalls
+- Avoid installing `colabfold` unless needed; it pins **old numpy/biopython**.
+- Prefer **biopython ≥ 1.83** (some code expects it).
+- On macOS MPS: `TORCH_MPS_HIGH_WATERMARK_RATIO=0.0` may help long runs.
 
 ---
 
-## FAQ
+## Datasets & Licensing
 
-**Do I need ColabFold installed?**  
-No. For *remote MSAs*, we call `https://a3m.mmseqs.com` directly. Install ColabFold only if you want local searches.
-
-**Is `rescontact` the same as structure prediction?**  
-It focuses on **contact/distance priors** (template + ESM2 + MSA) for training a lightweight contact net—useful for graph building and downstream mutation ranking.
-
-**Why ESM2 single‑sequence?**  
-It’s fast/light, works on 8‑GB Mac with MPS, and combines well with MSA summaries + template priors.
+You are responsible for ensuring any external datasets you use are **permitted for ML training** in your context.  
+Keep raw data paths out of git; place loaders in `packages/*/dataio` with clear schemas.
 
 ---
 
-## Citation & License
+## Roadmap (short)
 
-- See individual package `README.md` for academic references (ESM2, MMseqs, AFDB, RIN/PRS, etc.).  
-- License: MIT (unless specified otherwise in a package).
+- [ ] `pipelines/train_rescontact.py` CLI
+- [ ] `resintnet` PRS + GNN scripts
+- [ ] `seqml` LoRA fine‑tuning CLI + evaluation harness
+- [ ] End‑to‑end Airflow/Prefect DAG & Makefile targets
+
+---
+
+## Troubleshooting
+
+- **MMseqs API 429/307**: lower `--qps`; use `--resume`; ensure `--want-templates` only when needed.
+- **IndexError in MSA features**: ensure query FASTA and A3M columns align (script now guards with column mapping & insertions).
+- **Version conflicts**: create a clean env; pin torch, numpy, biopython; avoid mixing TF/ColabFold in the same env.
+
+---
+
+## Citation & Acknowledgments
+
+This repo composes public building blocks (ESM2, MMseqs, PDB/AFDB resources). Please cite upstream projects where appropriate.  
+Contributions welcome — follow `CONTRIBUTING.md` (to be added).
