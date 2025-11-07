@@ -1,270 +1,238 @@
-# protein-engineering — E2E mutation hotspot discovery (sequence ↔ structure)
 
-This monorepo targets an **end‑to‑end pipeline** for protein & enzyme engineering:
-given **sequence(s)** + **experimental datasets**, we predict **distal mutation hotspots**
-guided by **structure/contact information** and **sequence models**, then rank candidates for wet‑lab validation.
+# protein-engineering — end‑to‑end sequence→structure→mutation ranking
 
-> High‑level flow  
-> **Sequences → (Templates + ESM2 + MSA) → Contact/Distance Priors → Residue‑Interaction Graph → PRS/Memory + GNN ranking → Candidate mutations → Sequence‑level ML (fine‑tuned LLMs) → Predicted efficacy**
+This monorepo hosts an end‑to‑end, laptop‑friendly pipeline for protein engineering:
+given **sequence(s)** and optional **experimental data**, we derive **structure‑aware contact/ distance priors** (ResContact), build a **residue‑interaction network** (ResIntNet), and **rank distal mutation candidates** with a blend of **GNN scoring** and **memory/PRS centrality**. Optionally, a SeqML package fine‑tunes sequence models to predict mutant efficacy.
+
+> Works on MacBook Air M‑series (8 GB) with careful knobs (chunked ESM2, small GNNs, remote MSAs).
 
 ---
 
-## Repository layout (monorepo)
+## A. Repository layout (monorepo)
 
 ```
 protein-engineering/
 ├── README.md
 ├── archive/
-│   └── msa_utils/                 # legacy scripts (kept for reference)
-├── configs/                       # repo-level defaults (paths, binning, registry)
-├── docker/                        # base images & compose
+│   └── msa_utils/                 # legacy or experimental (kept for reference)
+├── configs/                       # repo-level defaults (paths, bins, registries)
+├── docker/                        # base images, compose
 ├── packages/
-│   ├── rescontact/                # contact/distance priors (Templates, ESM2, MSA)
+│   ├── rescontact/                # contact/distance priors (templates, ESM2, MSA)
 │   │   ├── README.md
 │   │   ├── notebooks/
 │   │   ├── pyproject.toml
 │   │   └── src/rescontact/
-│   │       ├── data/pdb_utils.py
-│   │       ├── features/          # embedding.py, msa.py, pair_features.py
-│   │       ├── models/contact_net.py
-│   │       └── utils/             # metrics.py, train.py
-│   ├── resintnet/                 # residue-interaction network + hotspot ranking
+│   │       ├── data/              # PDB helpers
+│   │       ├── features/          # ESM2, MSA, pair features
+│   │       ├── models/            # (optional) contact nets
+│   │       └── utils/             # metrics, train loops
+│   ├── resintnet/                 # residue-interaction network + mutation ranking
 │   │   ├── README.md
 │   │   ├── notebook/
-│   │   └── pyproject.toml
-│   └── seqml/                     # sequence-level modeling (mut efficacy/fitness)
+│   │   ├── pyproject.toml
+│   │   └── src/resintnet/
+│   └── seqml/                     # sequence-level modeling (mutant efficacy/fitness)
 │       ├── README.md
 │       ├── notebook/
 │       ├── prot_api_flask/
 │       └── pyproject.toml
-└── pipelines/                     # thin glue/DAGs; no heavy logic
-```
-
-**Why this shape?**
-- Each `packages/*` subdir is an **installable Python package** (with its own tests, configs, Dockerfile).
-- `pipelines/` holds light orchestration (CLI or DAG) that **composes packages** without duplicating logic.
-- `archive/` contains legacy/experimental code kept out of the critical path.
-
----
-
-## Quickstart (Apple Silicon friendly)
-
-> Recommended: Python **3.11**, PyTorch **2.5+**, CUDA not required on Mac; uses MPS fallback.
-
-```bash
-# 1) Clone
-git clone https://github.com/rtakahas/protein-engineering.git
-cd protein-engineering
-
-# 2) Create env
-conda create -y -n pe311 python=3.11
-conda activate pe311
-
-# 3) Install base (editables)
-pip install -e packages/rescontact -e packages/resintnet -e packages/seqml
-
-# (Optional) Apple Metal fallback
-export PYTORCH_ENABLE_MPS_FALLBACK=1
-```
-
-### Data folders (local, gitignored)
-```
-data/
-  fasta/               # input sequences (.fa)
-  templates/           # mmseqs hits + priors caches
-  emb/                 # ESM2 embeddings (per-L npy)
-  msas/                # A3M files + features
+└── pipelines/                     # thin orchestration (no heavy logic)
 ```
 
 ---
 
-## Stage A — Contacts/Distance Priors (packages/rescontact)
+## B. End‑to‑end flow
 
-This stage builds **structure-aware priors** per query sequence by fusing:
-- **Template alignments** (from PDB/AFDB hits) → distance-bin histograms
-- **ESM2 residue embeddings** (per-position)
-- **MSA‑derived features** (e.g., PSSM/PSFM; optional)
+1) **ResContact** (packages/rescontact)
+   - Input: FASTA (+ local PDB cache), remote MSA via MMseqs API.
+   - Output:
+     - `emb/`: per‑residue ESM2 embeddings (`L × C`)
+     - `msas/` + `msa_features/`: A3M + conservation/MI/APC summaries
+     - `priors/`: `(L × L × B)` distance‑bin priors from templates (PDB/AFDB); `bins.npy`, `mask.npy`, and `meta.json` per query.
 
-### A1) Prepare FASTA
-If your PDB chains are already parsed, you likely have `data/fasta/_subset.fa`. Otherwise:
+2) **ResIntNet** (packages/resintnet)
+   - Build residue‑interaction graph from priors/structure:
+     - Nodes = residues; node features = ESM2 + MSA summaries (+ optional physchem).
+     - Edges = contacts from CA distance threshold or top‑K from priors; edge attrs = binned distance, 1/r, template agreement, etc.
+   - Score residues with:
+     - **GNN** (GraphSAGE/GAT) → per‑residue logits/scores.
+     - **PRS/Memory** → perturbation response centrality per residue.
+   - **Blend** = `final_score = α · sigmoid(gϕ) + (1−α) · norm(PRS)`.
+   - Output: ranked residues (distal candidates), CSV per protein.
+
+3) **SeqML** (packages/seqml)
+   - Fine‑tune sequence models (e.g., T5/ESM/LLM) to predict mutant fitness/efficacy using curated experimental datasets; take top‑K residues from ResIntNet and enumerate small mutational neighborhoods.
+
+---
+
+## C. Remote MSA (MMseqs) + ESM2 + Priors (quick recap)
+
 ```bash
-# Example (pseudo): convert PDB/CIF to FASTA
-python -m rescontact.data.pdb_utils \
-  --pdb-root data/pdb/train data/pdb/test \
-  --out data/fasta/_subset.fa
-```
-
-### A2) Remote homology & templates via MMseqs API
-**No ColabFold install required**; we use the public MMseqs/A3M API.
-
-```bash
-export RESCONTACT_TEMPLATE_DIR=data/templates
-
-python scripts/retrieve_homologs.py \
+# 1) FASTA → ESM2 embeddings (tiny model OK on M‑series)
+python packages/rescontact/scripts/embed_esm2.py \
   --fasta data/fasta/10_subset.fa \
+  --out-dir data/emb/esm2_t12 \
+  --model esm2_t12_35M_UR50D
+
+# 2) Remote MSA (rate-limited; no local install required)
+python packages/rescontact/scripts/run_msa_batch.py \
+  --fasta data/fasta/10_subset.fa \
+  --msa-out-dir data/msas \
   --server-url https://a3m.mmseqs.com \
-  --db uniref \
-  --max-hits 16 \
-  --want-templates \
-  --qps 0.15 --inter-job-sleep 2 --max-retries 8 --timeout 1800 \
-  --flush-every 1 \
-  --out data/templates/mmseqs_hits.json
-```
+  --db uniref --qps 0.15
 
-> Tip: If you hit rate‑limits (HTTP 429), reduce `--qps` and keep `--resume` enabled.
+# 3) MSA → compact features (depth, PSSM/PSFM, MI/APC summaries)
+python packages/rescontact/scripts/build_msa_features.py \
+  --msa-dir data/msas \
+  --esm-emb-dir data/emb/esm2_t12 \
+  --out-dir data/msa_features \
+  --float16
 
-### A3) Build **template priors** (distance bins)
-This aligns selected templates to the query and outputs per‑pair distance probabilities.
-
-```bash
-python scripts/build_template_priors.py \
+# 4) Template priors (PDB/AFDB) → (L×L×B) distances
+export RESCONTACT_TEMPLATE_DIR=data/templates
+python packages/rescontact/scripts/build_template_priors.py \
   --hits data/templates/mmseqs_hits.json \
   --pdb-root data/pdb/train data/pdb/test \
   --out-dir "$RESCONTACT_TEMPLATE_DIR/priors" \
   --structure-source "pdb,afdb" \
   --max-hits-per-query 8 \
   --max-downloads-per-run 50
-# -> writes: data/templates/priors/<QUERY>.npz
-#    keys: priors (L,L,B), bins (B+1), mask (L,L), meta (json)
 ```
 
-### A4) **ESM2 embeddings**
+Outputs you’ll reuse in ResIntNet:
+- `data/emb/esm2_t12/{ID}.esm2.npy` (L×C)
+- `data/msa_features/{ID}.npz` with `{X (L×F), depth, meta}`
+- `data/templates/priors/{ID}.npz` with `{priors (L×L×B), bins, mask, meta}`
+
+---
+
+## D. **Supervised training with distal‑mutation datasets** (NEW)
+
+You **can** supervise the GNN ranking using curated distal‑mutation sets (e.g., literature compilations). The idea:
+
+- Convert *mutation‑level* evidence into **residue‑level labels**.
+- Train a **per‑residue classifier** (or **pairwise ranker**) on graphs built from priors/structure and node features (ESM2, MSA, etc.).
+- Blend GNN scores with **PRS/Memory centrality** at inference.
+
+> ⚠️ Always check the dataset’s license/terms. Keep raw third‑party data out of the repo; add a small downloader/normalizer instead.
+
+### D.1 Normalized CSV schema
+
+Create `data/supervision/distal_mutations.csv`:
+
+| column            | type    | notes                                                                 |
+|-------------------|---------|-----------------------------------------------------------------------|
+| protein_id        | str     | e.g., `1ABC_A` (PDB ID + chain) or your internal query ID            |
+| chain_id          | str     | single letter; optional if encoded in `protein_id`                    |
+| residue_index_seq | int     | 1‑based **sequence** index (align to FASTA/ESM2)                      |
+| label             | int     | 1 = distal hotspot residue, 0 = non‑hotspot                           |
+| effect_size       | float   | optional (Δactivity, Δstability, …)                                   |
+| evidence          | str     | optional citation / source                                            |
+| split             | str     | `train` / `val` / `test` (or generate via script)                     |
+
+> If your source data uses PDB residue numbering, map to sequence indices via your existing mapper (`rescontact.data.pdb_utils`) to align with ESM2 embeddings.
+
+**Residue label aggregation:** if any mutation at a residue is curated as distal/beneficial (per your criterion), mark the residue `label=1`. Otherwise, sample negatives from residues not known positive (optionally exclude active‑site residues or zones too close to the binding site to focus on distal candidates).
+
+### D.2 Graph construction (per protein)
+
+- **Nodes (L):** residues 1..L
+  - `x_node = concat([ESM2_i, MSA_i, optional physchem_i])`
+- **Edges:** build from structure/priors
+  - Undirected edges for `CA_dist < 8Å` **or** top‑K neighbors from priors (e.g., `K=16` per residue).
+  - Edge attrs: `[1/dist, one_hot(dist_bin), template_agreement, …]`
+- **Labels:** `y_i ∈ {0,1}` from `distal_mutations.csv` (missing → mask as unlabeled during training).
+
+### D.3 Objective choices
+
+- **Binary classification** (default): per‑residue BCEWithLogitsLoss with **class weights** (positives are rare).
+- **Pairwise ranking**: sample (pos, neg) pairs within a protein; BPR/hinge loss to push positive residues above negatives.
+- **Multitask**: classification + auxiliary regression on `effect_size` (if available).
+
+### D.4 Train/Val/Test split
+
+- **By protein**, not by residue, to avoid leakage. A simple split file:
+  - `data/supervision/splits.json`: `{ "train": [...], "val": [...], "test": [...] }`
+- Or assign in the CSV `split` column.
+
+### D.5 Minimal training CLI
+
+Prepare tensors/graphs:
 ```bash
-python scripts/embed_esm2.py \
-  --fasta data/fasta/10_subset.fa \
-  --out-dir data/emb/esm2_t12 \
-  --model esm2_t12_35M_UR50D
-# -> <QUERY>.esm2.npy  shape=(L, C)
-```
-
-### A5) **MSA** (A3M) and features (optional but recommended)
-```bash
-# Download A3M
-python scripts/run_msa_batch.py \
-  --fasta data/fasta/10_subset.fa \
-  --msa-out-dir data/msas \
-  --server-url https://a3m.mmseqs.com \
-  --db uniref \
-  --qps 0.15
-
-# Build per‑position MSA features (PSSM/PSFM; depth stats)
-python scripts/build_msa_features.py \
-  --msa-dir data/msas \
-  --esm-emb-dir data/emb/esm2_t12 \
-  --out-dir data/msa_features \
-  --float16
-
-# (Optional) Concatenate ESM2 + MSA to a single feature tensor
-python scripts/concat_esm2_msa.py \
+# Build per-protein graphs + labels (reads ESM2/MSA/priors; writes .pt files)
+python packages/resintnet/scripts/prepare_graphs.py \
   --esm-dir data/emb/esm2_t12 \
   --msa-dir data/msa_features \
-  --out-dir data/emb/esm2_t12_plus_msa \
-  --mode pad \
-  --include-depth \
-  --float16
+  --priors-dir data/templates/priors \
+  --labels-csv data/supervision/distal_mutations.csv \
+  --out-dir data/graphs \
+  --dist-threshold 8.0 \
+  --topk-from-priors 16 \
+  --add-edge-bins
 ```
 
-### A6) Train contact/distance model (planned CLI)
-Planned `pipelines/train_rescontact.py` (thin wrapper) to train with:
-- Inputs: `emb_dir` (ESM2 or ESM2+MSA), `priors_dir` (template npz), bin edges
-- Loss: cross‑entropy on distance bins + aux contact loss
-- Splits: protein‑level to avoid leakage
-
-> For now, see `packages/rescontact/src/rescontact/utils/train.py` to wire your datasets.
-
----
-
-## Stage B — Residue‑Interaction Network (packages/resintnet)
-
-Build a **graph over residues** using predicted/contact priors &/or a structure model, then rank **distal mutation hotspots** with **memory/PRS** and a **GNN**.
-
-**Planned workflow:**
-1. **Graph build**: nodes = residues, edges weighted by contact prob / distances.  
-   ```bash
-   python -m resintnet.scripts.build_graph \
-     --contacts data/templates/priors \
-     --out data/graphs
-   ```
-2. **PRS/Memory**: compute perturbation response & centrality per residue.
-3. **GNN ranking**: train GraphSAGE/GAT with node/edge features (ESM2, priors).  
-   Output: ranked residues (distal candidates).
-
-### External mutation datasets (for supervision)
-If you use curated distal‑mutation datasets (e.g., literature/third‑party), ensure the **license allows ML training**. Prepare a normalized CSV:
-```
-protein_id, pdb_id, chain, position, wt_aa, mut_aa, label_distal, assay, effect_value
+Train a small GraphSAGE:
+```bash
+python packages/resintnet/scripts/train_gnn.py \
+  --graphs-dir data/graphs \
+  --model graphsage \
+  --hidden 256 --layers 3 --dropout 0.3 \
+  --loss bce \
+  --class-weight-pos 8.0 \
+  --epochs 50 --batch-size 1 \
+  --device mps   # or cpu
 ```
 
-> Split **by protein** (not by mutation) to avoid optimistic leakage. Evaluate Top‑k precision/recall, AUPRC, and NDCG@k.
-
----
-
-## Stage C — Sequence‑level ML (packages/seqml)
-
-Fine‑tune sequence models (e.g., ESM2/ProtT5) to score **WT→mutant** efficacy (stability, activity, binding). Support **LoRA/QLoRA** for resource‑friendly finetuning.
-
-**Inputs:**
-- Mutant sequences or edits (e.g., `A123C`) and optional structural features (from Stage B)
-- Experimental labels (ΔΔG, activity, etc.)
-
-**Outputs:**
-- Regression/class scores per mutation
-- Re‑ranking of hotspot candidates
-
----
-
-## Putting it together: one‑shot pipeline
-
-```
-pipelines/e2e_propose_mutations.py
-  1) A2–A5: build priors + embeddings + MSA
-  2) B1–B3: construct RIN & rank distal hotspots
-  3) C*: score WT→mutants; output top‑N list + rationale
+Evaluate + export ranked residues:
+```bash
+python packages/resintnet/scripts/rank_mutations.py \
+  --graphs-dir data/graphs \
+  --ckpt runs/gnn/best.ckpt \
+  --prs-alpha 0.4 \
+  --out-dir outputs/ranks
 ```
 
----
+Outputs: `outputs/ranks/{protein_id}.csv` with `residue_index_seq, gnn_score, prs, final_score` (descending).
 
-## Docker & Reproducibility
+### D.6 Blending with PRS/Memory
 
-Each package can define its own `Dockerfile` (pinning Python & deps). Suggested base:
-```
-docker/
-  base.Dockerfile   # uv/pip-tools, torch cpu/mps, biopython>=1.83
-  docker-compose.yml
-```
+- Compute **PRS centrality** per residue (packages/resintnet has a `prs.py` util).
+- Normalize to `[0,1]` across a protein.
+- Blend: `final = α·sigmoid(gnn_logits) + (1−α)·prs_norm`, with `α∈[0.3,0.7]` (tune on `val`).
 
-### Known version pitfalls
-- Avoid installing `colabfold` unless needed; it pins **old numpy/biopython**.
-- Prefer **biopython ≥ 1.83** (some code expects it).
-- On macOS MPS: `TORCH_MPS_HIGH_WATERMARK_RATIO=0.0` may help long runs.
+### D.7 Metrics
+
+- **Per‑protein**: AUROC, AUPRC, Hit@K (K=5,10,20), Enrichment@K.
+- **Global**: macro/micro AUPRC across proteins.
+- **Ablations**: w/ vs w/o PRS; w/ vs w/o MSA; priors vs geometry edges.
 
 ---
 
-## Datasets & Licensing
+## E. Notes on resources & licensing
 
-You are responsible for ensuring any external datasets you use are **permitted for ML training** in your context.  
-Keep raw data paths out of git; place loaders in `packages/*/dataio` with clear schemas.
-
----
-
-## Roadmap (short)
-
-- [ ] `pipelines/train_rescontact.py` CLI
-- [ ] `resintnet` PRS + GNN scripts
-- [ ] `seqml` LoRA fine‑tuning CLI + evaluation harness
-- [ ] End‑to‑end Airflow/Prefect DAG & Makefile targets
+- **Third‑party datasets**: keep outside the repo and provide a download/prepare script; verify license allows model training.
+- **Apple Silicon**: prefer smaller ESM2 (`t12_35M`), float16 storage, shallow GNNs; avoid giant minibatches.
+- **Reproducibility**: set seeds; use cross‑protein splits; log config in `runs/`.
 
 ---
 
-## Troubleshooting
+## F. Roadmap (short)
 
-- **MMseqs API 429/307**: lower `--qps`; use `--resume`; ensure `--want-templates` only when needed.
-- **IndexError in MSA features**: ensure query FASTA and A3M columns align (script now guards with column mapping & insertions).
-- **Version conflicts**: create a clean env; pin torch, numpy, biopython; avoid mixing TF/ColabFold in the same env.
+- [ ] Package‑level READMEs with exact CLI examples
+- [ ] Add `prepare_graphs.py`, `prs.py`, `train_gnn.py`, `rank_mutations.py`
+- [ ] Optional: pairwise ranking loss and multitask head
+- [ ] Minimal Dockerfiles for laptop/CPU usage
 
 ---
 
-## Citation & Acknowledgments
+### Quick FAQ
 
-This repo composes public building blocks (ESM2, MMseqs, PDB/AFDB resources). Please cite upstream projects where appropriate.  
-Contributions welcome — follow `CONTRIBUTING.md` (to be added).
+**Q: Can I train only with PRS (no labels)?**  
+A: Yes—PRS/Memory yields an unsupervised ranking. Supervised GNN adds signal from curated distal mutations to learn transferable motifs.
+
+**Q: How do I map PDB residue numbers to sequence indices?**  
+A: Use the `rescontact.data.pdb_utils` helpers to align SEQRES/ATOM to your FASTA so ESM2/MSA/priors and labels share the same 1‑based sequence index.
+
+**Q: Pairwise ranking vs classification?**  
+A: Start with weighted BCE (simpler, stable). If positives are very sparse per protein, pairwise BPR can improve top‑K precision.
