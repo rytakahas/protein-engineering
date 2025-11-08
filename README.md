@@ -1,9 +1,9 @@
-# Protein Engineering Monorepo — ResContact ➜ ResIntNet ➜ SeqML
+# Protein Engineering Monorepo — ResContact → ResIntNet → SeqML
 
 End‑to‑end, modular pipeline for **protein & enzyme engineering**:
-from **sequence** (± structure) and experimental datasets ➜
-**contacts/priors** ➜ **residue‑interaction graph & hotspot ranking** (distal mutation candidates)
-➜ **sequence‑level efficacy modeling** (fine‑tuned LMs).
+from **sequence** (± structure) and experimental datasets →
+**contacts/priors** → **residue‑interaction graph & hotspot ranking** (distal mutation candidates)
+→ **sequence‑level efficacy modeling** (fine‑tuned LMs).
 
 This repository is organized as a **monorepo** with three packages and thin orchestration under `pipelines/`.
 Each package is installable & runnable on its own; outputs are cached to disk so stages can be resumed or reused.
@@ -42,37 +42,61 @@ Everything is designed to run locally first (**caches on disk**), and later be p
 .
 ├── README.md
 ├── archive/
-│   └── msa_utils/                  # old scripts archived
+│   └── msa_utils/
+│       ├── Dockerfile
+│       ├── README.md
+│       └── run_deepmsa.sh
 ├── configs/
 │   ├── mappings/
-│   │   └── generic_example.yaml    # id/path mapping example
-│   └── pipeline.example.yaml       # E2E config template
-├── docker/                         # (future) base images / compose
+│   │   └── generic_example.yaml      # example for mapping/query metadata
+│   └── pipeline.example.yaml         # E2E config template
+├── docker/                           # (future) base images / compose
 ├── packages/
-│   ├── rescontact/                 # Stage A
+│   ├── rescontact/                   # Stage A
 │   │   ├── README.md
-│   │   ├── notebooks/              # exploratory notebooks
+│   │   ├── notebooks/
+│   │   │   ├── res_contact_workflow.ipynb
+│   │   │   ├── res_contact_workflow_opt.ipynb
+│   │   │   ├── res_contact_workflow_opt2.ipynb
+│   │   │   └── res_contact_workflow_opt_msa.ipynb
 │   │   ├── pyproject.toml
-│   │   ├── scripts/                # CLIs (no heavy logic)
-│   │   │   ├── retrieve_homologs.py, run_msa_batch.py, build_template_priors.py, ...
-│   │   └── src/rescontact/         # library code
-│   │       ├── io/ features/ datasets/ models/ training/ api/ utils/
-│   ├── resintnet/                  # Stage B
+│   │   ├── scripts/                  # CLIs (no heavy logic)
+│   │   │   ├── retrieve_homologs.py
+│   │   │   ├── run_msa_batch.py
+│   │   │   ├── build_template_priors.py
+│   │   │   ├── build_msa_features.py
+│   │   │   ├── embed_esm2.py
+│   │   │   ├── concat_esm2_msa.py
+│   │   │   ├── fuse_priors.py
+│   │   │   ├── train.py
+│   │   │   ├── eval.py
+│   │   │   └── psi_report.py
+│   │   └── src/rescontact/           # library code
+│   │       ├── api/ features/ io/ datasets/ models/ training/ utils/
+│   ├── resintnet/                    # Stage B
 │   │   ├── README.md
 │   │   ├── pyproject.toml
-│   │   ├── scripts/                # ingest + ranking CLIs
+│   │   ├── scripts/
 │   │   │   ├── ingest_mutations.py
 │   │   │   └── rank_mutations.py
 │   │   └── src/resintnet/
-│   │       ├── ingest/ graph.py prs.py models/ rank.py
-│   └── seqml/                      # Stage C
+│   │       ├── graph.py prs.py rank.py
+│   │       ├── models/
+│   │       │   └── sage.py
+│   │       └── ingest/
+│   │           ├── base.py utils.py
+│   │           └── adapters/
+│   │               ├── d3distal.py
+│   │               └── generic_csv.py
+│   └── seqml/                        # Stage C
 │       ├── README.md
 │       ├── pyproject.toml
 │       ├── scripts/
 │       │   ├── prepare_mutants.py
 │       │   └── train.py
 │       └── src/seqml/
-│           ├── mutgen.py train_t5_lora.py
+│           ├── mutgen.py
+│           └── train_t5_lora.py
 └── pipelines/
     ├── README.md
     ├── e2e_propose_mutations.py
@@ -114,7 +138,7 @@ All stages write to local **caches** (NPZ/NPY/Parquet/CSV) so you can resume. Co
 - `data/templates/priors/*.npz` — ResContact template priors (distance‑bin probabilities)
 - `data/emb/esm2_*/*.npy` — ESM2 per‑residue embeddings
 - `data/msas/*.a3m` and `data/msa_features/*.npz` — MSA raw + summarized features
-- `data/resintnet/*` — graphs, PRS and blended scores
+- `data/resintnet/*` — graphs, PRS/memory and blended scores
 - `data/seqml/*` — mutant candidates, train data, checkpoints
 
 Environment knobs used by the scripts:
@@ -181,7 +205,7 @@ python packages/rescontact/scripts/run_msa_batch.py \
   --db uniref \
   --qps 0.15
 
-# Summarize MSA ➜ features (PSSM/PSFM/MI-lite)
+# Summarize MSA → features (PSSM/PSFM/MI-lite)
 python packages/rescontact/scripts/build_msa_features.py \
   --msa-dir data/msas \
   --esm-emb-dir data/emb/esm2_t12 \
@@ -225,17 +249,43 @@ python packages/rescontact/scripts/eval.py \
 **Input**: ResContact outputs (priors, contact probs, embeddings), optional PDB.  
 **Output**: ranked residue hotspots (CSV) + optional GNN checkpoints.
 
-**What it does**
-- Build **residue‑interaction graph** (`graph.py`): nodes = residues; edges = contacts (Cα ≤ τ) or from top‑K prior probs.
-- Node feats = ESM2 (+ MSA summaries, physchem if available); edge feats = binned distances, 1/r, template agreement, prior weight.
-- **PRS/Memory** (`prs.py`): compute perturbation‑response centrality vector per residue.
-- **GNN** (`models/sage.py`): GraphSAGE/GAT, predicts per‑residue propensity.
-- **Blend** (`rank.py`): `final = α·sigmoid(GNN) + (1−α)·norm(PRS)`.
+### What it does
+
+1) **Build residue‑interaction graph** (`src/resintnet/graph.py`):
+
+- **Nodes** = residues. **Node features** = ESM2 (+ MSA summaries; optional physchem).
+- **Edges** from contacts (Cα ≤ τ Å) or top‑K from priors.
+- **Edge attributes**:  
+  - distance bin features (one‑hot / soft),  
+  - prior contact probability,  
+  - **memory conductance** `C` (see PRS below),  
+  - `1 / r` (or RBF),  
+  - template agreement / count.
+
+2) **PRS / Memory** (`src/resintnet/prs.py`):
+
+- Build the **memory‑weighted Laplacian** `L = D − W`, where **edge weights** are proportional to `C / length`  
+  (use geometric length; for simplicity in the initial version use `C / r`).
+- Compute **perturbation‑response centrality** per residue (solve `(L + εI) x = b` for impulses `b`, aggregate responses).  
+- Outputs: `PRS_centrality` and **MemoryFocus** signals (e.g., edge current or power drop near a residue under forced load).
+
+3) **GNN** (`src/resintnet/models/sage.py`):
+
+- GraphSAGE/GAT consumes node/edge features.  
+- The **memory conductance `C`** is provided **as an edge feature** and/or used as the **adjacency weight** for message passing.
+
+4) **Blend & rank** (`src/resintnet/rank.py`):
+
+- Final score per residue:
+  ```
+  score = α·σ( GNN(residue) ) + β·norm(PRS_centrality) + γ·MemoryFocus
+  ```
+  Start with **α=0.5, β=0.4, γ=0.1** and tune per dataset/task.
 
 ### B.1 (Optional) Ingest external mutation datasets
 
-Use adapters in `src/resintnet/ingest/adapters/` to normalize curated mutation sets
-(e.g., **D3DistalMutation**). Ensure licensing permits ML use.
+Use adapters in `src/resintnet/ingest/adapters/` to normalize curated mutation sets (e.g., **D3DistalMutation**).
+Ensure licensing permits ML use.
 
 ```bash
 # Example: D3Distal CSV -> normalized parquet
@@ -246,7 +296,7 @@ python packages/resintnet/scripts/ingest_mutations.py \
   --mapping configs/mappings/generic_example.yaml
 ```
 
-You can add more sources by implementing a small adapter under `adapters/` and registering it.
+Add new sources by making a small adapter module under `adapters/` and registering it.
 
 ### B.2 Rank residues (PRS + optional GNN)
 
@@ -257,15 +307,17 @@ python packages/resintnet/scripts/rank_mutations.py \
   --emb-dir data/emb/esm2_t12_plus_msa \
   --out-dir data/resintnet/scores \
   --alpha 0.5 \
+  --beta 0.4 \
+  --gamma 0.1 \
   --contact-threshold 8.0 \
   --topk-priors 400 \
   --save-graphs
 ```
 
-This writes per‑protein CSVs with `residue_index`, `score_prs`, `score_gnn` (if trained), and `score_blend`.
+This writes per‑protein CSVs with `residue_index`, `score_prs`, `score_gnn` (if trained), `memory_focus`, and `score_blend`.
 
-> **Training the GNN**: use `pipelines/train_resintnet.py` for a minimal example that samples nodes/graphs from your proteins,
-> optionally supervised by curated mutation labels (if available).
+> **Training the GNN**: use `pipelines/train_resintnet.py` as a minimal example that samples nodes/graphs
+> from your proteins, optionally supervised by curated mutation labels (if available).
 
 ---
 
@@ -315,7 +367,6 @@ python pipelines/train_seqml.py       --config configs/pipeline.example.yaml
 ### Example `configs/pipeline.example.yaml`
 
 ```yaml
-# Minimal example; tune paths & knobs to your setup.
 data:
   fasta: data/fasta/10_subset.fa
   pdb_roots: [data/pdb/train, data/pdb/test]
@@ -339,12 +390,10 @@ rescontact:
 resintnet:
   contact_threshold: 8.0
   topk_priors: 400
-  alpha_blend: 0.5
+  alpha_blend: 0.5   # α in the blend
+  beta_blend: 0.4    # β
+  gamma_blend: 0.1   # γ
   save_graphs: true
-  # gnn_training: optional block if you have labels
-  # gnn_training:
-  #   epochs: 50
-  #   lr: 1.0e-3
 
 seqml:
   neighbors: 1
