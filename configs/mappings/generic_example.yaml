@@ -1,0 +1,13 @@
+protein_id: protein
+chain_id: chain
+default_chain: A
+residue_index: pos
+indexing: 1-based
+wt_col: wt
+mut_col: mut
+label_distal: distal
+label_allosteric:
+evidence_source: "literature_2020_paperX"
+default_weight: 1.0
+aa_format: auto
+# author_seq_col: AuthorSeq

@@ -1,9 +1,21 @@
-[project]
-name = "seqml"
-version = "0.0.1"
-requires-python = ">=3.10"
-dependencies = []
 
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "seqml"
+version = "0.1.0"
+description = "Sequence-level finetuning for mutant efficacy"
+requires-python = ">=3.9"
+dependencies = [
+  "pandas>=1.5",
+  "numpy>=1.23",
+  "torch>=2.1",
+  "transformers>=4.44",
+  "datasets>=2.19",
+]
+
+[project.optional-dependencies]
+lora = ["peft>=0.13.0", "accelerate>=0.33.0"]
+dev  = ["pytest", "black", "ruff"]
