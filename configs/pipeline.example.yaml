@@ -1,0 +1,54 @@
+# Example end-to-end pipeline configuration
+paths:
+  fasta: data/fasta/10_subset.fa
+  work_dir: .
+  output_dir: outputs
+
+  # Feature caches
+  emb_dir: data/emb/esm2_t12
+  msa_dir: data/msas
+  msa_feat_dir: data/msa_features
+
+  # Template search / priors
+  template_hits: data/templates/mmseqs_hits.json
+  template_priors_dir: data/templates/priors
+
+  # Labels (optional if training resintnet/seqml)
+  resintnet_labels_mut: data/labels/mutations.csv
+  resintnet_labels_res: data/labels/residues.csv
+
+rescontact:
+  esm_model: esm2_t12_35M_UR50D
+  qps: 0.15
+  db: uniref
+  max_hits: 16
+  max_hits_per_query: 8
+  structure_source: "pdb,afdb"
+  device: auto
+  # uncomment if you want different FASTA for ESM2/priors vs ranking set
+  # fasta_for_priors: data/fasta/train.fa
+  # fasta_for_embed:  data/fasta/train.fa
+
+msa:
+  server_url: "https://a3m.mmseqs.com"
+  qps: 0.15
+
+resintnet:
+  alpha: 0.5                 # blend weight: GNN vs PRS
+  topk_residues: 40
+  graph:
+    cutoff: 8.0              # Å cutoff for CA-CA edges
+    topk_priors: 64          # or None to disable prior-based edges
+  # Optional: path to a trained GNN weights file
+  # checkpoint: outputs/resintnet/gnn.ckpt
+
+seqml:
+  model_name: "t5-small"
+  epochs: 3
+  lora:
+    r: 8
+    alpha: 16
+    dropout: 0.05
+  mutant_generation:
+    max_mut_distance: 1      # 1 = single mutant, 2 = double, etc.
+    per_residue_variants: 5  # e.g., sample 5 amino acids / residue
