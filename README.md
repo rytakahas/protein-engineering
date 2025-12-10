@@ -1,9 +1,9 @@
 # Protein Engineering Monorepo — ResContact → ResIntNet → SeqML
 
-End‑to‑end, modular pipeline for **protein & enzyme engineering**:
+End-to-end, modular pipeline for **protein & enzyme engineering**:
 from **sequence** (± structure) and experimental datasets →
-**contacts/priors** → **residue‑interaction graph & hotspot ranking** (distal mutation candidates)
-→ **sequence‑level efficacy modeling** (fine‑tuned LMs).
+**contacts/priors** → **residue-interaction graph & hotspot ranking** (distal mutation candidates)
+→ **sequence-level efficacy modeling** (fine-tuned LMs).
 
 This repository is organized as a **monorepo** with three packages and thin orchestration under `pipelines/`.
 Each package is installable & runnable on its own; outputs are cached to disk so stages can be resumed or reused.
@@ -23,14 +23,15 @@ Each package is installable & runnable on its own; outputs are cached to disk so
 - [Configs](#configs)
 - [Tips (Mac M1/M2/M3, CUDA), Repro, Docker](#tips-mac-m1m2m3-cuda-repro-docker)
 - [Licenses & Data](#licenses--data)
+- [What's next](#whats-next)
 
 ---
 
 ## Goals
 
-- **rescontact**: build template‑guided distance/contact priors and per‑residue features from ESM2 and MSA; train a compact contact head.
-- **resintnet**: turn contacts/priors into residue‑interaction graphs; compute **PRS/memory** centrality and **GNN** scores; blend/ensemble to rank **distal** mutation hotspots.
-- **seqml**: fine‑tune sequence models (e.g., T5/ESM) for **mutant efficacy/fitness** prediction around proposed residues; iterate with experiment‑in‑the‑loop.
+- **rescontact**: build template-guided distance/contact priors and per-residue features from ESM2 and MSA; train a compact contact head.
+- **resintnet**: turn contacts/priors into residue-interaction graphs; compute **PRS (Perturbation-Response Scanning / Signal) + memory-based** centrality and **GNN (Graph Neural Network)** scores; blend/ensemble to rank **distal** mutation hotspots.
+- **seqml**: fine-tune sequence models (e.g., T5/ESM) for **mutant efficacy/fitness** prediction around proposed residues; iterate with experiment-in-the-loop.
 
 Everything is designed to run locally first (**caches on disk**), and later be portable to a DW/Lakehouse or workflow engine.
 
@@ -109,7 +110,7 @@ Everything is designed to run locally first (**caches on disk**), and later be p
 
 ## Install
 
-Use **per‑package** editable installs (keeps deps isolated). Recommended Python **3.11**.
+Use per-package editable installs (keeps deps isolated). Recommended Python 3.11.
 
 ```bash
 # From repo root
@@ -125,18 +126,17 @@ pip install -e packages/resintnet
 pip install -e packages/seqml
 ```
 
-> Tip: avoid installing ColabFold/JAX in this env unless you really need local MMseqs2+JAX; the CLIs here default to the
-> **remote MMseqs2 API** (`https://a3m.mmseqs.com`) for MSAs, which avoids heavy deps.
+**Tip:** avoid installing ColabFold/JAX in this env unless you really need local MMseqs2+JAX; the CLIs here default to the remote MMseqs2 API (https://a3m.mmseqs.com) for MSAs, which avoids heavy deps.
 
 ---
 
 ## Data & Caches
 
-All stages write to local **caches** (NPZ/NPY/Parquet/CSV) so you can resume. Common places:
+All stages write to local caches (NPZ/NPY/Parquet/CSV) so you can resume. Common places:
 
 - `data/fasta/*.fa` — your queries
-- `data/templates/priors/*.npz` — ResContact template priors (distance‑bin probabilities)
-- `data/emb/esm2_*/*.npy` — ESM2 per‑residue embeddings
+- `data/templates/priors/*.npz` — ResContact template priors (distance-bin probabilities)
+- `data/emb/esm2_*/*.npy` — ESM2 per-residue embeddings
 - `data/msas/*.a3m` and `data/msa_features/*.npz` — MSA raw + summarized features
 - `data/resintnet/*` — graphs, PRS/memory and blended scores
 - `data/seqml/*` — mutant candidates, train data, checkpoints
@@ -152,8 +152,8 @@ export CUDA_VISIBLE_DEVICES=0   # if CUDA available
 
 ## Stage A — ResContact (contacts, priors, features)
 
-**Input**: FASTA(s), optional local PDBs.  
-**Output**: per‑query NPZ/NPY features and contact/priors artifacts for downstream stages.
+**Input:** FASTA(s), optional local PDBs.  
+**Output:** per-query NPZ/NPY features and contact/priors artifacts for downstream stages.
 
 ### A.1 Retrieve homologs (templates)
 
@@ -168,10 +168,9 @@ python packages/rescontact/scripts/retrieve_homologs.py \
   --out data/templates/mmseqs_hits.json
 ```
 
-### A.2 Build **template priors** (distance‑bin histograms)
+### A.2 Build template priors (distance-bin histograms)
 
-Writes one NPZ per query with:
-`priors (L,L,B)`, `bins`, `mask (L,L)`, `meta`.
+Writes one NPZ per query with: `priors` (L,L,B), `bins`, `mask` (L,L), `meta`.
 
 ```bash
 export RESCONTACT_TEMPLATE_DIR=data/templates
@@ -246,46 +245,67 @@ python packages/rescontact/scripts/eval.py \
 
 ## Stage B — ResIntNet (graphs, PRS/memory, GNN ranking)
 
-**Input**: ResContact outputs (priors, contact probs, embeddings), optional PDB.  
-**Output**: ranked residue hotspots (CSV) + optional GNN checkpoints.
+**Input:** ResContact outputs (priors, contact probs, embeddings), optional PDB.  
+**Output:** ranked residue hotspots (CSV) + optional GNN checkpoints.
 
 ### What it does
 
-1) **Build residue‑interaction graph** (`src/resintnet/graph.py`):
+1. **Build residue-interaction graph** (`src/resintnet/graph.py`):
+   - **Nodes** = residues.
+   - **Node features** = ESM2 (+ MSA summaries; optional physicochemical features).
+   - **Edges** from contacts (Cα ≤ τ Å) or top-K from priors.
+   - **Edge attributes** include, e.g.:
+     - distance bin features (one-hot / soft),
+     - prior contact probability,
+     - memory conductance C (see PRS/memory below),
+     - 1 / r or RBF distance features,
+     - template agreement / count.
 
-- **Nodes** = residues. **Node features** = ESM2 (+ MSA summaries; optional physchem).
-- **Edges** from contacts (Cα ≤ τ Å) or top‑K from priors.
-- **Edge attributes**:  
-  - distance bin features (one‑hot / soft),  
-  - prior contact probability,  
-  - **memory conductance** `C` (see PRS below),  
-  - `1 / r` (or RBF),  
-  - template agreement / count.
+2. **PRS / memory flow** (`src/resintnet/prs.py`):
 
-2) **PRS / Memory** (`src/resintnet/prs.py`):
+   We use a simple, ENM-style perturbation–response model:
 
-- Build the **memory‑weighted Laplacian** `L = D − W`, where **edge weights** are proportional to `C / length`  
-  (use geometric length; for simplicity in the initial version use `C / r`).
-- Compute **perturbation‑response centrality** per residue (solve `(L + εI) x = b` for impulses `b`, aggregate responses).  
-- Outputs: `PRS_centrality` and **MemoryFocus** signals (e.g., edge current or power drop near a residue under forced load).
+   - **PRS (Perturbation-Response Scanning / Signal):**  
+     We apply a small virtual "kick" or load at one site (e.g. orthosteric pocket or interface) on the residue graph and solve a Laplacian-type system to estimate how strongly other residues respond. This yields a flow / centrality signal that has been widely used as a proxy for allosteric communication pathways in elastic-network models.
 
-3) **GNN** (`src/resintnet/models/sage.py`):
+   - **Memory conductance C:**  
+     We treat an edge-wise conductance as a "memory" channel. Edges that consistently carry strong PRS flow can be given higher C, while low-flow edges get lower C. In the simplest version (current code) this is a one-shot update based on PRS flux; in future work it can be iterated in the spirit of adaptive-network models (e.g. Bhattacharyya et al., PRL 129, 028101, 2022), where the network adapts to repeated loads and its topology "remembers" preferred communication routes.
 
-- GraphSAGE/GAT consumes node/edge features.  
-- The **memory conductance `C`** is provided **as an edge feature** and/or used as the **adjacency weight** for message passing.
+   From this we compute:
+   - **PRS-like centrality** per residue (how strongly each residue responds to orthosteric perturbation),
+   - optional **edge-level "memory focus"** scores (which contacts appear on strong communication paths).
 
-4) **Blend & rank** (`src/resintnet/rank.py`):
+3. **GNN scoring** (`src/resintnet/models/sage.py`):
+   - A Graph Neural Network (GNN) (GraphSAGE-style) consumes the node and edge features.
+   - The memory conductance C is exposed as a dedicated edge feature and can also be used as a weight in message passing.
+   - The GNN can be trained on weak labels (graph-level activity/stability aggregates) and/or curated mutation datasets. We also support auxiliary losses that encourage the GNN's internal gates and saliency to align with PRS-derived flows.
 
-- Final score per residue:
-  ```
-  score = α·σ( GNN(residue) ) + β·norm(PRS_centrality) + γ·MemoryFocus
-  ```
-  Start with **α=0.5, β=0.4, γ=0.1** and tune per dataset/task.
+4. **Blend & rank** (`src/resintnet/rank.py`):
+
+   Final per-residue score is a blend of physics-inspired and learned terms:
+
+   ```
+   score = α · σ( GNN(residue) )
+         + β · norm(PRS_centrality)
+         + γ · MemoryFocus
+   ```
+
+   with default α = 0.5, β = 0.4, γ = 0.1 (tuned per dataset/task).
+
+### Short glossary (ResIntNet)
+
+- **PRS (Perturbation-Response Scanning / Signal)**  
+  Small virtual perturbations are applied at a site (e.g. active site), and the resulting response on the residue network is computed via a Laplacian/ENM model. Residues that show strong response or lie on high-flow edges are interpreted as part of allosteric communication pathways.
+
+- **Memory conductance C**  
+  An edge attribute that encodes how "important" a contact is for propagating signal. Inspired by adaptive flow networks, C is increased for edges that carry strong PRS flow and decreased for edges that rarely carry flow. The resulting pattern of high- vs low-C edges provides a history-dependent, non-linear refinement of standard ENM/PRS allostery maps.
+
+- **GNN (Graph Neural Network)**  
+  A neural network that operates directly on the residue-interaction graph, aggregating information from neighbors via message passing. Here, it complements the physics-based PRS/memory signals by learning patterns across proteins and mutation datasets.
 
 ### B.1 (Optional) Ingest external mutation datasets
 
-Use adapters in `src/resintnet/ingest/adapters/` to normalize curated mutation sets (e.g., **D3DistalMutation**).
-Ensure licensing permits ML use.
+Use adapters in `src/resintnet/ingest/adapters/` to normalize curated mutation sets (e.g., D3DistalMutation). These can be used to validate and calibrate the PRS/memory + GNN scores against experimentally known distal mutations or allosteric sites.
 
 ```bash
 # Example: D3Distal CSV -> normalized parquet
@@ -314,17 +334,21 @@ python packages/resintnet/scripts/rank_mutations.py \
   --save-graphs
 ```
 
-This writes per‑protein CSVs with `residue_index`, `score_prs`, `score_gnn` (if trained), `memory_focus`, and `score_blend`.
+This writes per-protein CSVs with:
+- `residue_index`
+- `score_prs` (normalized PRS centrality)
+- `score_gnn` (if trained)
+- `memory_focus` (edge/path-based memory signal)
+- `score_blend` (final ensemble score)
 
-> **Training the GNN**: use `pipelines/train_resintnet.py` as a minimal example that samples nodes/graphs
-> from your proteins, optionally supervised by curated mutation labels (if available).
+**Training the GNN:** use `pipelines/train_resintnet.py` as a minimal example that samples nodes/graphs from your proteins, optionally supervised by curated mutation labels (if available).
 
 ---
 
 ## Stage C — SeqML (mutant efficacy / fitness modeling)
 
-**Input**: hotspot residues (from ResIntNet) + wild‑type sequences (+ experimental datasets if training).  
-**Output**: fine‑tuned model & predictions for small mutational neighborhoods (1–3 AA changes) around hotspots.
+**Input:** hotspot residues (from ResIntNet) + wild-type sequences (+ experimental datasets if training).  
+**Output:** fine-tuned model & predictions for small mutational neighborhoods (1–3 AA changes) around hotspots.
 
 ### C.1 Generate candidate mutants
 
@@ -340,13 +364,13 @@ python packages/seqml/scripts/prepare_mutants.py \
 ### C.2 Train or infer with a sequence model
 
 ```bash
-# Example: LoRA fine‑tune a small T5 on curated fitness (if available)
+# Example: LoRA fine-tune a small T5 on curated fitness (if available)
 python packages/seqml/scripts/train.py \
   --train data/seqml/train.csv \
   --val   data/seqml/val.csv \
   --out   data/seqml/t5_lora_run1
 
-# Or run zero/few‑shot inference (see package README)
+# Or run zero/few-shot inference (see package README)
 ```
 
 ---
@@ -363,6 +387,10 @@ python pipelines/train_rescontact.py  --config configs/pipeline.example.yaml
 python pipelines/train_resintnet.py   --config configs/pipeline.example.yaml
 python pipelines/train_seqml.py       --config configs/pipeline.example.yaml
 ```
+
+---
+
+## Configs
 
 ### Example `configs/pipeline.example.yaml`
 
@@ -409,25 +437,25 @@ runtime:
 
 ## Tips (Mac M1/M2/M3, CUDA), Repro, Docker
 
-- Apple Silicon works well with **PyTorch MPS** for ESM2 embedding and small models. Keep batch sizes small.
-- Remote MSA avoids heavy local installs. If you need local MMseqs2, isolate it in a separate env/docker image.
-- Use **`pip install -e`** per package to keep dependency islands small.
+- **Apple Silicon** works well with PyTorch MPS for ESM2 embedding and small models. Keep batch sizes small.
+- **Remote MSA** avoids heavy local installs. If you need local MMseqs2, isolate it in a separate env/docker image.
+- Use `pip install -e` per package to keep dependency islands small.
 - Dockerfiles in `docker/` (coming) will pin OS/driver combos for reproducibility.
 
 ---
 
 ## Licenses & Data
 
-- Code is under your repo’s license (TBD). Third‑party libraries keep their own licenses.
-- **External datasets** (e.g., D3DistalMutation) may have **usage restrictions**. Confirm license terms before training or redistribution.
+- **Code** is under your repo's license (TBD). Third-party libraries keep their own licenses.
+- **External datasets** (e.g., D3DistalMutation) may have usage restrictions. Confirm license terms before training or redistribution.
 - If you add new dataset adapters, document the source and license in `packages/resintnet/src/resintnet/ingest/README.md`.
 
 ---
 
-## What’s next
+## What's next
 
 - Add CI in `.github/workflows/` to lint & run a tiny smoke test per package.
 - Publish minimal Docker images for each package.
 - Optional: move persistent artifacts to cloud object storage and add a DW schema when you outgrow local caches.
 
-Happy hacking! ✨
+**Happy hacking!**
