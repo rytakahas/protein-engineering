@@ -28,9 +28,9 @@ Each package is installable & runnable on its own; outputs are cached to disk so
 
 ## Goals
 
-- **ResContact**: build template‑guided distance/contact priors and per‑residue features from ESM2 and MSA; train a compact contact head.
-- **ResIntNet**: turn contacts/priors into residue‑interaction graphs; compute **PRS/memory** centrality and **GNN** scores; blend/ensemble to rank **distal** mutation hotspots.
-- **SeqML**: fine‑tune sequence models (e.g., T5/ESM) for **mutant efficacy/fitness** prediction around proposed residues; iterate with experiment‑in‑the‑loop.
+- **rescontact**: build template‑guided distance/contact priors and per‑residue features from ESM2 and MSA; train a compact contact head.
+- **resintnet**: turn contacts/priors into residue‑interaction graphs; compute **PRS/memory** centrality and **GNN** scores; blend/ensemble to rank **distal** mutation hotspots.
+- **seqml**: fine‑tune sequence models (e.g., T5/ESM) for **mutant efficacy/fitness** prediction around proposed residues; iterate with experiment‑in‑the‑loop.
 
 Everything is designed to run locally first (**caches on disk**), and later be portable to a DW/Lakehouse or workflow engine.
 
