@@ -1,0 +1,37 @@
+edges:
+  HAS_RESIDUE:
+    from: Protein
+    to: Residue
+    props: []
+  HAS_POCKET:
+    from: Protein
+    to: Pocket
+    props: [method]
+  COMPOSED_OF:
+    from: Pocket
+    to: Residue
+    props: [role]
+  BINDS:
+    from_any: [Ligand, Peptide]
+    to_any: [Protein, Pocket]
+    props: [metric, value, units, source]
+  PREDICTED_BINDING:
+    from_any: [Ligand, Peptide]
+    to: Pocket
+    props: [engine, score, pose_path, constraints, created_at]
+  HAS_TOXICITY:
+    from: Ligand
+    to: ToxicityEvent
+    props: [source]
+  MENTIONED_IN:
+    from_any: [Protein, Ligand, Peptide, Pocket]
+    to: Paper
+    props: [snippet]
+  CONTACTS:
+    from: Residue
+    to: Residue
+    props: [w, dist, source]
+  ALLOSTERIC_PATH:
+    from: Residue
+    to: Residue
+    props: [prs, memory, source]
