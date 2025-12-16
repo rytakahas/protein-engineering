@@ -1,32 +1,47 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM
-import torch
+from __future__ import annotations
+from dataclasses import dataclass
+
 from .base import LLM
-from ..config import LLMConfig
 
+# Optional dependency: transformers + torch
+# pip install transformers torch
+try:
+    import torch
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+except Exception:  # pragma: no cover
+    torch = None
+    AutoTokenizer = None
+    AutoModelForCausalLM = None
+
+
+@dataclass
 class HFLocalLLM(LLM):
-    def __init__(self, cfg: LLMConfig):
-        self.cfg = cfg
-        self.tokenizer = AutoTokenizer.from_pretrained(cfg.model_name, use_fast=True)
+    model_id: str
+    device: str = "auto"
+    max_new_tokens: int = 512
+    temperature: float = 0.2
 
-        dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-        device_map = "auto" if cfg.device == "auto" else None
+    def __post_init__(self):
+        if AutoTokenizer is None or AutoModelForCausalLM is None:
+            raise RuntimeError("transformers/torch not installed. pip install transformers torch")
 
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
         self.model = AutoModelForCausalLM.from_pretrained(
-            cfg.model_name,
-            torch_dtype=dtype,
-            device_map=device_map
+            self.model_id,
+            torch_dtype=torch.float16 if torch and torch.cuda.is_available() else None,
+            device_map="auto" if self.device == "auto" else None,
         )
 
     def generate(self, prompt: str) -> str:
         inputs = self.tokenizer(prompt, return_tensors="pt")
-        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+        if torch and torch.cuda.is_available():
+            inputs = {k: v.to("cuda") for k, v in inputs.items()}
+
         out = self.model.generate(
             **inputs,
-            max_new_tokens=self.cfg.max_new_tokens,
-            temperature=self.cfg.temperature,
-            do_sample=self.cfg.temperature > 0,
+            max_new_tokens=self.max_new_tokens,
+            do_sample=self.temperature > 0,
+            temperature=self.temperature,
         )
-        text = self.tokenizer.decode(out[0], skip_special_tokens=True)
-        if text.startswith(prompt):
-            return text[len(prompt):].strip()
-        return text.strip()
+        return self.tokenizer.decode(out[0], skip_special_tokens=True)
+

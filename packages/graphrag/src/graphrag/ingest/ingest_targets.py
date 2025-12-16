@@ -1,21 +1,27 @@
+from __future__ import annotations
 import pandas as pd
 from ..db import Neo4jClient
 
-UPSERT_PROTEIN = """
-MERGE (p:Protein {uniprot_id:$uniprot_id})
-SET p.name=$name, p.family=$family, p.organism=$organism, p.gene=$gene,
-    p.sequence=$sequence, p.length=$length
-"""
 
-def ingest_targets(db: Neo4jClient, path: str):
-    df = pd.read_csv(path)
-    for _, r in df.iterrows():
-        db.run_write(UPSERT_PROTEIN, {
-            "uniprot_id": str(r["uniprot_id"]),
-            "name": r.get("name", ""),
-            "family": r.get("family", ""),
-            "organism": r.get("organism", ""),
-            "gene": r.get("gene", ""),
-            "sequence": r.get("sequence", ""),
-            "length": int(r["length"]) if "length" in r and pd.notna(r["length"]) else None,
-        })
+def ingest_targets(db: Neo4jClient, csv_path: str) -> dict:
+    df = pd.read_csv(csv_path)
+    required = {"uniprot_id"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"targets.csv missing columns: {sorted(missing)}")
+
+    cypher = """
+    MERGE (p:Protein {uniprot_id: $uniprot_id})
+    SET p.name = coalesce($name, p.name),
+        p.family = coalesce($family, p.family),
+        p.organism = coalesce($organism, p.organism),
+        p.gene = coalesce($gene, p.gene),
+        p.sequence = coalesce($sequence, p.sequence),
+        p.length = coalesce($length, p.length)
+    """
+    n = 0
+    for _, row in df.iterrows():
+        db.execute_cypher(cypher, row.to_dict())
+        n += 1
+    return {"ingested": n}
+

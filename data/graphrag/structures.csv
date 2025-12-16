@@ -1,0 +1,3 @@
+model_id,uniprot_id,ligand_id,pdb_path,method,confidence,created_at
+pdb_demo_1,P12345,CHEMBL0001,data/graphrag/structures/pdb_demo_1.pdb,xray,1.0,2024-01-01
+

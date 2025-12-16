@@ -1,0 +1,4 @@
+ligand_id,name,smiles,inchi_key,scaffold_id,logp,tpsa,mw,source
+CHEMBL0001,ExampleInhibitor,CC1=CC(=O)N(C)C=C1,FAKEINCHIKEY0001,scaffold_001,2.1,68.0,320.3,ChEMBL
+CHEMBL0002,ExampleAnalog,CC1=CC(=O)N(C)CC=C1,FAKEINCHIKEY0002,scaffold_001,2.3,65.0,318.3,ChEMBL
+

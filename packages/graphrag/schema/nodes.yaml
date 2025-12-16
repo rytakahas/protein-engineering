@@ -1,28 +1,66 @@
 nodes:
   Protein:
-    keys: [uniprot_id]
-    props: [name, family, organism, gene, sequence, length]
-  Residue:
-    keys: [residue_uid]
-    props: [uniprot_id, chain, index, aa]
-  Pocket:
-    keys: [pocket_id]
-    props: [uniprot_id, type, method, residues, descriptors]
+    key: uniprot_id
+    required: [uniprot_id]
+    optional: [name, gene, family, organism, sequence, length]
+
+  Disease:
+    key: disease_id
+    required: [disease_id]
+    optional: [name, ontology, source]
+
   Ligand:
-    keys: [ligand_id]
-    props: [name, smiles, inchi_key, scaffold_id, logp, tpsa, mw, source]
+    key: ligand_id
+    required: [ligand_id]
+    optional: [name, smiles, inchi_key, scaffold_id, mw, logp, tpsa, source]
+
+  Antibody:
+    key: antibody_id
+    required: [antibody_id]
+    optional: [name, vh_seq, vl_seq, cdrh3, cdrl3, source]
+
   Peptide:
-    keys: [peptide_id]
-    props: [name, sequence, length, modifications, source]
+    key: peptide_id
+    required: [peptide_id]
+    optional: [name, sequence, length, source]
+
+  Structure:
+    key: structure_id
+    required: [structure_id]
+    optional: [pdb_id, sabdab_id, pdbbind_id, method, resolution, path, source]
+
   ComplexModel:
-    keys: [model_id]
-    props: [uniprot_id, ligand_id, peptide_id, pdb_path, method, confidence, created_at]
+    key: model_id
+    required: [model_id]
+    optional: [method, confidence, pdb_path, mmcif_path, created_at, source]
+
   AssayResult:
-    keys: [assay_id]
-    props: [uniprot_id, ligand_id, peptide_id, metric, value, units, system, conditions, source]
+    key: assay_id
+    required: [assay_id]
+    optional: [metric, value, units, source, year]
+
   ToxicityEvent:
-    keys: [tox_id]
-    props: [ligand_id, tox_type, severity, evidence, source]
+    key: tox_id
+    required: [tox_id]
+    optional: [flag, severity, source, notes]
+
   Paper:
-    keys: [doi]
-    props: [title, year, journal, url, abstract]
+    key: paper_id
+    required: [paper_id]
+    optional: [doi, pmid, title, year, journal, url]
+
+  Residue:
+    key: residue_uid
+    required: [residue_uid]
+    optional: [uniprot_id, uniprot_pos, aa, chain]
+
+  Pocket:
+    key: pocket_id
+    required: [pocket_id]
+    optional: [method, fingerprint, notes]
+
+  Epitope:
+    key: epitope_id
+    required: [epitope_id]
+    optional: [method, fingerprint, notes]
+

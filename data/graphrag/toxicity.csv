@@ -1,0 +1,3 @@
+tox_id,ligand_id,flag,severity,source,notes
+TOX001,CHEMBL0002,hERG_risk,medium,ChEMBL,Example liability flag
+

@@ -1,37 +1,61 @@
 edges:
+  ASSOCIATED_WITH:
+    from: Protein
+    to: Disease
+    props: [evidence_score, source]
+
+  TARGETS:
+    from: [Ligand, Antibody, Peptide]
+    to: Protein
+    props: [source]
+
+  HAS_STRUCTURE:
+    from: [Protein, Ligand, Antibody, Peptide]
+    to: Structure
+    props: [method, source]
+
+  HAS_MODEL:
+    from: [Protein, Ligand, Antibody, Peptide]
+    to: ComplexModel
+    props: [confidence, source]
+
+  HAS_ASSAY:
+    from: [Ligand, Antibody, Peptide]
+    to: AssayResult
+    props: [metric, value, units, source, year]
+
+  HAS_TOXICITY:
+    from: Ligand
+    to: ToxicityEvent
+    props: [severity, source]
+
+  MENTIONED_IN:
+    from: [Protein, Disease, Ligand, Antibody, Peptide, Structure, ComplexModel, AssayResult, ToxicityEvent]
+    to: Paper
+    props: [snippet, source]
+
   HAS_RESIDUE:
     from: Protein
     to: Residue
     props: []
+
   HAS_POCKET:
-    from: Protein
+    from: [Structure, ComplexModel]
     to: Pocket
-    props: [method]
+    props: [method, source]
+
+  HAS_EPITOPE:
+    from: [Structure, ComplexModel]
+    to: Epitope
+    props: [method, source]
+
   COMPOSED_OF:
-    from: Pocket
+    from: [Pocket, Epitope]
     to: Residue
     props: [role]
+
   BINDS:
-    from_any: [Ligand, Peptide]
-    to_any: [Protein, Pocket]
+    from: [Ligand, Peptide]
+    to: [Protein, Pocket]
     props: [metric, value, units, source]
-  PREDICTED_BINDING:
-    from_any: [Ligand, Peptide]
-    to: Pocket
-    props: [engine, score, pose_path, constraints, created_at]
-  HAS_TOXICITY:
-    from: Ligand
-    to: ToxicityEvent
-    props: [source]
-  MENTIONED_IN:
-    from_any: [Protein, Ligand, Peptide, Pocket]
-    to: Paper
-    props: [snippet]
-  CONTACTS:
-    from: Residue
-    to: Residue
-    props: [w, dist, source]
-  ALLOSTERIC_PATH:
-    from: Residue
-    to: Residue
-    props: [prs, memory, source]
+

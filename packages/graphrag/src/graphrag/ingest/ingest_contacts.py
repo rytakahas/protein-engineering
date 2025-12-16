@@ -1,47 +1,40 @@
+from __future__ import annotations
 import pandas as pd
 from ..db import Neo4jClient
 
-UPSERT_RESIDUE = """
-MERGE (r:Residue {residue_uid:$residue_uid})
-SET r.uniprot_id=$uniprot_id, r.chain=$chain, r.index=$index, r.aa=$aa
-"""
 
-CONTACT_EDGE = """
-MATCH (a:Residue {residue_uid:$a_uid})
-MATCH (b:Residue {residue_uid:$b_uid})
-MERGE (a)-[e:CONTACTS {source:$source}]->(b)
-SET e.w=$w, e.dist=$dist
-"""
-
-def ingest_contacts(db: Neo4jClient, path: str, source: str = "rescontact"):
-    """CSV expected columns:
-    uniprot_id, chain, i, aa_i, j, aa_j, w, dist
+def ingest_contacts(db: Neo4jClient, csv_path: str) -> dict:
     """
-    df = pd.read_csv(path)
-    for _, r in df.iterrows():
-        chain = r.get("chain", "A")
-        uid_i = f"{r['uniprot_id']}:{chain}:{int(r['i'])}"
-        uid_j = f"{r['uniprot_id']}:{chain}:{int(r['j'])}"
+    Generic residue-residue contacts / interface contacts.
 
-        db.run_write(UPSERT_RESIDUE, {
-            "residue_uid": uid_i,
-            "uniprot_id": str(r["uniprot_id"]),
-            "chain": chain,
-            "index": int(r["i"]),
-            "aa": r.get("aa_i", "")
-        })
-        db.run_write(UPSERT_RESIDUE, {
-            "residue_uid": uid_j,
-            "uniprot_id": str(r["uniprot_id"]),
-            "chain": chain,
-            "index": int(r["j"]),
-            "aa": r.get("aa_j", "")
-        })
+    Expected columns (minimum):
+      uniprot_id, chain, i, aa_i, j, aa_j, w, dist
+    Optional:
+      model_id, contact_type
+    """
+    df = pd.read_csv(csv_path)
+    required = {"uniprot_id", "i", "j"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"contacts.csv missing columns: {sorted(missing)}")
 
-        db.run_write(CONTACT_EDGE, {
-            "a_uid": uid_i,
-            "b_uid": uid_j,
-            "w": float(r["w"]) if "w" in r and pd.notna(r["w"]) else 1.0,
-            "dist": float(r["dist"]) if "dist" in r and pd.notna(r["dist"]) else None,
-            "source": source
-        })
+    cypher_res = """
+    MERGE (p:Protein {uniprot_id: $uniprot_id})
+    MERGE (ri:Residue {residue_uid: $uniprot_id + ':' + toString($i)})
+    SET ri.uniprot_id = $uniprot_id, ri.uniprot_pos = $i, ri.aa = coalesce($aa_i, ri.aa), ri.chain = coalesce($chain, ri.chain)
+    MERGE (rj:Residue {residue_uid: $uniprot_id + ':' + toString($j)})
+    SET rj.uniprot_id = $uniprot_id, rj.uniprot_pos = $j, rj.aa = coalesce($aa_j, rj.aa), rj.chain = coalesce($chain, rj.chain)
+    MERGE (p)-[:HAS_RESIDUE]->(ri)
+    MERGE (p)-[:HAS_RESIDUE]->(rj)
+    MERGE (ri)-[c:CONTACTS]->(rj)
+    SET c.w = coalesce($w, 1.0),
+        c.dist = coalesce($dist, null),
+        c.model_id = coalesce($model_id, c.model_id),
+        c.contact_type = coalesce($contact_type, c.contact_type)
+    """
+    n = 0
+    for _, row in df.iterrows():
+        db.execute_cypher(cypher_res, row.to_dict())
+        n += 1
+    return {"ingested": n}
+

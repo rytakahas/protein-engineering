@@ -1,0 +1,4 @@
+assay_id,ligand_id,uniprot_id,metric,value,units,source,year
+ASSAY001,CHEMBL0001,P12345,IC50,35,nM,ChEMBL,2022
+ASSAY002,CHEMBL0002,P12345,IC50,120,nM,ChEMBL,2022
+

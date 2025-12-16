@@ -1,0 +1,5 @@
+uniprot_id,chain,i,aa_i,j,aa_j,w,dist,model_id,contact_type
+P12345,A,45,LEU,120,ASP,1.0,3.8,af_model_001,protein_ligand
+P12345,A,46,VAL,120,ASP,1.0,4.2,af_model_001,protein_ligand
+P12345,A,178,PHE,220,GLU,1.0,4.6,af_model_001,protein_ligand
+
