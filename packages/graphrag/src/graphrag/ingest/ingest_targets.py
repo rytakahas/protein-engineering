@@ -1,27 +1,44 @@
 from __future__ import annotations
-import pandas as pd
+
+import csv
+from typing import Dict, Any
+
 from ..db import Neo4jClient
 
 
-def ingest_targets(db: Neo4jClient, csv_path: str) -> dict:
-    df = pd.read_csv(csv_path)
-    required = {"uniprot_id"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"targets.csv missing columns: {sorted(missing)}")
+def ingest_targets(db: Neo4jClient, csv_path: str) -> int:
+    """
+    Ingest Proteins (targets) from CSV.
+
+    Expected columns (minimum):
+      - uniprot_id
+    Optional:
+      - name, family, organism, gene, sequence, length
+    """
+    count = 0
+    with open(csv_path, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
 
     cypher = """
-    MERGE (p:Protein {uniprot_id: $uniprot_id})
-    SET p.name = coalesce($name, p.name),
-        p.family = coalesce($family, p.family),
-        p.organism = coalesce($organism, p.organism),
-        p.gene = coalesce($gene, p.gene),
-        p.sequence = coalesce($sequence, p.sequence),
-        p.length = coalesce($length, p.length)
+    UNWIND $rows AS row
+    MERGE (p:Protein {uniprot_id: row.uniprot_id})
+    SET p += row
     """
-    n = 0
-    for _, row in df.iterrows():
-        db.execute_cypher(cypher, row.to_dict())
-        n += 1
-    return {"ingested": n}
+
+    # Normalize types lightly
+    norm_rows: list[Dict[str, Any]] = []
+    for r in rows:
+        rr = dict(r)
+        if "length" in rr and rr["length"] not in (None, "", "null"):
+            try:
+                rr["length"] = int(rr["length"])
+            except Exception:
+                pass
+        norm_rows.append(rr)
+
+    if norm_rows:
+        db.run(cypher, params={"rows": norm_rows})
+        count = len(norm_rows)
+    return count
 

@@ -1,32 +1,43 @@
 from __future__ import annotations
-import pandas as pd
+
+import csv
+
 from ..db import Neo4jClient
 
 
-def ingest_structures(db: Neo4jClient, csv_path: str) -> dict:
-    df = pd.read_csv(csv_path)
-    required = {"model_id", "uniprot_id"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"structures.csv missing columns: {sorted(missing)}")
+def ingest_structures(db: Neo4jClient, csv_path: str) -> int:
+    """
+    Ingest Structure (experimental) or ComplexModel (predicted) records.
+
+    Expected columns:
+      - model_id
+    Optional:
+      - pdb_id, uniprot_id, ligand_id, antibody_id, peptide_id
+      - pdb_path, mmcif_path, method, confidence, created_at
+    """
+    with open(csv_path, "r", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
 
     cypher = """
-    MATCH (p:Protein {uniprot_id: $uniprot_id})
-    MERGE (s:Structure {structure_id: $model_id})
-    SET s.path = coalesce($pdb_path, s.path),
-        s.method = coalesce($method, s.method),
-        s.confidence = coalesce($confidence, s.confidence),
-        s.created_at = coalesce($created_at, s.created_at)
-    MERGE (p)-[:HAS_STRUCTURE]->(s)
-    WITH s
-    OPTIONAL MATCH (l:Ligand {ligand_id: $ligand_id})
+    UNWIND $rows AS row
+    // We treat everything as Structure unless method hints predicted;
+    // you can split later if you want.
+    MERGE (s:Structure {model_id: row.model_id})
+    SET s += row
+
+    WITH row, s
+    OPTIONAL MATCH (p:Protein {uniprot_id: row.uniprot_id})
+    FOREACH (_ IN CASE WHEN p IS NULL THEN [] ELSE [1] END |
+      MERGE (p)-[:HAS_STRUCTURE]->(s)
+    )
+
+    WITH row, s
+    OPTIONAL MATCH (l:Ligand {ligand_id: row.ligand_id})
     FOREACH (_ IN CASE WHEN l IS NULL THEN [] ELSE [1] END |
       MERGE (l)-[:HAS_STRUCTURE]->(s)
     )
     """
-    n = 0
-    for _, row in df.iterrows():
-        db.execute_cypher(cypher, row.to_dict())
-        n += 1
-    return {"ingested": n}
+    if rows:
+        db.run(cypher, params={"rows": rows})
+    return len(rows)
 

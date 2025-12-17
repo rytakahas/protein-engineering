@@ -4,3 +4,16 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Secrets / env
+.env
+.env.*
+
+# Data (local / generated)
+data/graphrag/structures/*.pdb
+
+# Python build artifacts
+packages/graphrag/src/graphrag.egg-info/
+**/*.egg-info/
+**/__pycache__/
+**/*.pyc

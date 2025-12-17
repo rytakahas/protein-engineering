@@ -1,2 +1,4 @@
 [project]
-name = 'graphrag'
+name = "graphrag"
+version = "0.1.0"
+

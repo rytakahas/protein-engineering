@@ -1,4 +1,7 @@
 uniprot_id,name,family,organism,gene,sequence,length
 P12345,Example Kinase,Protein kinase,Homo sapiens,EXK1,MKVLSEQLKAAE...FAKESEQ...,450
 Q9ABC1,Example Antigen,Surface antigen,Homo sapiens,EXAG1,MADKTT...FAKESEQ...,320
+P00734,Thrombin,Serine protease,Homo sapiens,F2,,622
+P15391,CD19,B-cell antigen,Homo sapiens,CD19,,556
+
 

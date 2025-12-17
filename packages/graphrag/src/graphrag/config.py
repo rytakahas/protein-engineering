@@ -1,6 +1,7 @@
 from __future__ import annotations
-from dataclasses import dataclass
+
 import os
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -13,12 +14,12 @@ class Neo4jConfig:
 
 @dataclass(frozen=True)
 class LLMConfig:
-    provider: str = "noop"  # "hf_local" or "noop"
-    model: str = "Qwen/Qwen2.5-7B-Instruct"
+    provider: str  # hf_inference | hf_local | none
+    model: str | None = None
+    token: str | None = None
     device: str = "auto"
     max_new_tokens: int = 512
     temperature: float = 0.2
-    hf_token: str | None = None
 
 
 @dataclass(frozen=True)
@@ -34,13 +35,15 @@ class AppConfig:
             password=os.getenv("NEO4J_PASSWORD", "password"),
             database=os.getenv("NEO4J_DATABASE", "neo4j"),
         )
+
+        provider = os.getenv("LLM_PROVIDER", "hf_inference").strip()
         llm = LLMConfig(
-            provider=os.getenv("LLM_PROVIDER", "noop"),
-            model=os.getenv("LLM_MODEL", "Qwen/Qwen2.5-7B-Instruct"),
+            provider=provider,
+            model=os.getenv("HF_MODEL_ID") if provider == "hf_inference" else os.getenv("LLM_MODEL"),
+            token=os.getenv("HF_TOKEN"),
             device=os.getenv("LLM_DEVICE", "auto"),
             max_new_tokens=int(os.getenv("LLM_MAX_NEW_TOKENS", "512")),
             temperature=float(os.getenv("LLM_TEMPERATURE", "0.2")),
-            hf_token=os.getenv("HF_TOKEN", None),
         )
         return AppConfig(neo4j=neo4j, llm=llm)
 

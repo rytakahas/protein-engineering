@@ -1,31 +1,52 @@
 from __future__ import annotations
-import pandas as pd
+
+import csv
+from typing import Dict, Any
+
 from ..db import Neo4jClient
 
 
-def ingest_assays(db: Neo4jClient, csv_path: str) -> dict:
-    df = pd.read_csv(csv_path)
-    required = {"assay_id", "ligand_id", "uniprot_id", "metric", "value"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"assays.csv missing columns: {sorted(missing)}")
+def ingest_assays(db: Neo4jClient, csv_path: str) -> int:
+    """
+    Ingest AssayResult nodes + link to Ligand/Protein when IDs provided.
+
+    Expected columns:
+      - assay_id
+    Optional:
+      - ligand_id, uniprot_id, metric, value, units, source, doi, pmid
+    """
+    with open(csv_path, "r", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+
+    norm: list[Dict[str, Any]] = []
+    for r in rows:
+        rr = dict(r)
+        if "value" in rr and rr["value"] not in (None, "", "null"):
+            try:
+                rr["value"] = float(rr["value"])
+            except Exception:
+                pass
+        norm.append(rr)
 
     cypher = """
-    MATCH (p:Protein {uniprot_id: $uniprot_id})
-    MATCH (l:Ligand {ligand_id: $ligand_id})
-    MERGE (a:AssayResult {assay_id: $assay_id})
-    SET a.metric = $metric,
-        a.value = $value,
-        a.units = coalesce($units, a.units),
-        a.source = coalesce($source, a.source),
-        a.year = coalesce($year, a.year)
-    MERGE (l)-[r:HAS_ASSAY]->(a)
-    SET r.metric = $metric, r.value = $value, r.units = coalesce($units, r.units)
-    MERGE (l)-[b:TARGETS]->(p)
+    UNWIND $rows AS row
+    MERGE (a:AssayResult {assay_id: row.assay_id})
+    SET a += row
+
+    WITH row, a
+    OPTIONAL MATCH (l:Ligand {ligand_id: row.ligand_id})
+    FOREACH (_ IN CASE WHEN l IS NULL THEN [] ELSE [1] END |
+      MERGE (l)-[r:HAS_ASSAY]->(a)
+      SET r.metric = row.metric, r.value = row.value, r.units = row.units, r.source = row.source
+    )
+
+    WITH row, a
+    OPTIONAL MATCH (p:Protein {uniprot_id: row.uniprot_id})
+    FOREACH (_ IN CASE WHEN p IS NULL THEN [] ELSE [1] END |
+      MERGE (a)-[:MEASURES]->(p)
+    )
     """
-    n = 0
-    for _, row in df.iterrows():
-        db.execute_cypher(cypher, row.to_dict())
-        n += 1
-    return {"ingested": n}
+    if norm:
+        db.run(cypher, params={"rows": norm})
+    return len(norm)
 

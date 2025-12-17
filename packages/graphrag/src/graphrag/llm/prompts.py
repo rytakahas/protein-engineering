@@ -1,55 +1,64 @@
+# packages/graphrag/src/graphrag/llm/prompts.py
 from __future__ import annotations
+
 from dataclasses import dataclass
-from ..db import Neo4jClient
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import json
 
 
 @dataclass
-class SubgraphRetriever:
-    db: Neo4jClient
+class PromptBundle:
+    """Loaded prompt + metadata."""
+    text: str
+    path: str
 
-    def retrieve(self, query_text: str, k: int = 50) -> dict:
-        """
-        Minimal retrieval:
-        - Pull top-k nodes that match query text in name fields.
-        - Then expand 1 hop to get edges around them.
-        """
-        # Match across a few common fields; adjust as your schema grows.
-        cypher_seed = """
-        MATCH (n)
-        WHERE any(prop IN ['name','gene','family','uniprot_id','ligand_id','disease_id'] 
-                  WHERE exists(n[prop]) AND toLower(toString(n[prop])) CONTAINS toLower($q))
-        RETURN elementId(n) AS nid, labels(n) AS labels, properties(n) AS props
-        LIMIT $k
-        """
-        seeds = self.db.query(cypher_seed, {"q": query_text, "k": k})
 
-        seed_ids = [s["nid"] for s in seeds]
-        if not seed_ids:
-            return {"query": query_text, "seeds": [], "nodes": [], "edges": []}
+def load_prompt(prompt_path: str | Path) -> PromptBundle:
+    """
+    Load a prompt template from a .md/.txt file.
+    """
+    p = Path(prompt_path)
+    if not p.exists():
+        raise FileNotFoundError(f"Prompt file not found: {p}")
+    text = p.read_text(encoding="utf-8")
+    return PromptBundle(text=text, path=str(p))
 
-        cypher_expand = """
-        MATCH (a)-[r]->(b)
-        WHERE elementId(a) IN $ids OR elementId(b) IN $ids
-        RETURN elementId(a) AS src, labels(a) AS src_labels, properties(a) AS src_props,
-               type(r) AS rel, properties(r) AS rel_props,
-               elementId(b) AS dst, labels(b) AS dst_labels, properties(b) AS dst_props
-        LIMIT $limit
-        """
-        rows = self.db.query(cypher_expand, {"ids": seed_ids, "limit": max(200, k * 10)})
 
-        nodes = {}
-        edges = []
-        for r in rows:
-            nodes[r["src"]] = {"id": r["src"], "labels": r["src_labels"], "props": r["src_props"]}
-            nodes[r["dst"]] = {"id": r["dst"], "labels": r["dst_labels"], "props": r["dst_props"]}
-            edges.append(
-                {"src": r["src"], "dst": r["dst"], "type": r["rel"], "props": r["rel_props"]}
-            )
+def render_prompt(
+    prompt_path: str | Path,
+    *,
+    variables: Optional[Dict[str, Any]] = None,
+    snapshot: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Render a prompt template.
 
-        return {
-            "query": query_text,
-            "seeds": seeds,
-            "nodes": list(nodes.values()),
-            "edges": edges,
-        }
+    Supported placeholders (simple):
+      - {snapshot_json}  -> JSON dump of retrieval snapshot
+      - any {var} from `variables`
+
+    This is intentionally lightweight (no Jinja dependency).
+    """
+    variables = variables or {}
+    bundle = load_prompt(prompt_path)
+
+    # Provide a stable snapshot serialization for the LLM
+    snapshot_json = ""
+    if snapshot is not None:
+        snapshot_json = json.dumps(snapshot, indent=2, ensure_ascii=False)
+
+    # Merge variables
+    ctx: Dict[str, Any] = dict(variables)
+    ctx["snapshot_json"] = snapshot_json
+
+    try:
+        return bundle.text.format(**ctx)
+    except KeyError as e:
+        missing = str(e).strip("'")
+        raise KeyError(
+            f"Missing placeholder variable '{missing}' when rendering {bundle.path}. "
+            f"Provided keys: {sorted(ctx.keys())}"
+        ) from e
 
