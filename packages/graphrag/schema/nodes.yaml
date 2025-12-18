@@ -1,66 +1,13 @@
+
 nodes:
-  Protein:
-    key: uniprot_id
-    required: [uniprot_id]
-    optional: [name, gene, family, organism, sequence, length]
-
-  Disease:
-    key: disease_id
-    required: [disease_id]
-    optional: [name, ontology, source]
-
-  Ligand:
-    key: ligand_id
-    required: [ligand_id]
-    optional: [name, smiles, inchi_key, scaffold_id, mw, logp, tpsa, source]
-
-  Antibody:
-    key: antibody_id
-    required: [antibody_id]
-    optional: [name, vh_seq, vl_seq, cdrh3, cdrl3, source]
-
-  Peptide:
-    key: peptide_id
-    required: [peptide_id]
-    optional: [name, sequence, length, source]
-
-  Structure:
-    key: structure_id
-    required: [structure_id]
-    optional: [pdb_id, sabdab_id, pdbbind_id, method, resolution, path, source]
-
-  ComplexModel:
-    key: model_id
-    required: [model_id]
-    optional: [method, confidence, pdb_path, mmcif_path, created_at, source]
-
-  AssayResult:
-    key: assay_id
-    required: [assay_id]
-    optional: [metric, value, units, source, year]
-
-  ToxicityEvent:
-    key: tox_id
-    required: [tox_id]
-    optional: [flag, severity, source, notes]
-
-  Paper:
-    key: paper_id
-    required: [paper_id]
-    optional: [doi, pmid, title, year, journal, url]
-
-  Residue:
-    key: residue_uid
-    required: [residue_uid]
-    optional: [uniprot_id, uniprot_pos, aa, chain]
-
-  Pocket:
-    key: pocket_id
-    required: [pocket_id]
-    optional: [method, fingerprint, notes]
-
-  Epitope:
-    key: epitope_id
-    required: [epitope_id]
-    optional: [method, fingerprint, notes]
-
+  - Protein: [uniprot_id, name, gene, family, organism]
+  - Disease: [disease_id, name, ontology]
+  - Ligand: [ligand_id, name, smiles, inchi_key, scaffold_id]
+  - Antibody: [antibody_id, name, vh, vl, cdrh3, cdrl3]
+  - Peptide: [peptide_id, name, sequence]
+  - Structure: [structure_id, pdb_id, method, path, confidence]
+  - ComplexModel: [model_id, method, path, confidence]
+  - AssayResult: [assay_id, metric, value, units, source]
+  - ToxicityEvent: [tox_id, name, severity, source]
+  - Paper: [doi, pmid, title, year]
+  - Residue: [residue_uid, uniprot_id, pos, aa]

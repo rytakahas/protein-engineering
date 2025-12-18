@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import csv
@@ -7,18 +8,9 @@ from ..db import Neo4jClient
 
 
 def ingest_targets(db: Neo4jClient, csv_path: str) -> int:
-    """
-    Ingest Proteins (targets) from CSV.
-
-    Expected columns (minimum):
-      - uniprot_id
-    Optional:
-      - name, family, organism, gene, sequence, length
-    """
     count = 0
     with open(csv_path, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
+        rows = list(csv.DictReader(f))
 
     cypher = """
     UNWIND $rows AS row
@@ -26,9 +18,10 @@ def ingest_targets(db: Neo4jClient, csv_path: str) -> int:
     SET p += row
     """
 
-    # Normalize types lightly
     norm_rows: list[Dict[str, Any]] = []
     for r in rows:
+        if not r.get("uniprot_id"):
+            continue
         rr = dict(r)
         if "length" in rr and rr["length"] not in (None, "", "null"):
             try:
@@ -41,4 +34,3 @@ def ingest_targets(db: Neo4jClient, csv_path: str) -> int:
         db.run(cypher, params={"rows": norm_rows})
         count = len(norm_rows)
     return count
-

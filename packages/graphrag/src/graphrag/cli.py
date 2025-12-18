@@ -1,173 +1,155 @@
-# packages/graphrag/src/graphrag/config.py
+
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass
-from typing import Optional
+from dotenv import load_dotenv
+load_dotenv()
+
+import argparse
+from pathlib import Path
+
+from .config import AppConfig
+from .db import Neo4jClient
+from .schema import apply_cql_file
+from .utils import write_json, read_json
+
+from .llm.loader import load_llm
+from .llm.prompts import render_prompt
+from .retrieval.subgraph_retriever import SubgraphRetriever
+
+from .ingest.ingest_targets import ingest_targets
+from .ingest.ingest_ligands import ingest_ligands
+from .ingest.ingest_assays import ingest_assays
+from .ingest.ingest_toxicity import ingest_toxicity
+from .ingest.ingest_structures import ingest_structures
+from .ingest.ingest_contacts import ingest_contacts
 
 
-def _getenv(key: str, default: Optional[str] = None) -> Optional[str]:
-    v = os.getenv(key)
-    if v is None:
-        return default
-    v = v.strip()
-    return v if v != "" else default
+def cmd_schema_apply(db: Neo4jClient, cql_path: str) -> None:
+    n = apply_cql_file(db, cql_path)
+    print(f"✅ Applied schema from: {cql_path} ({n} statements)")
 
 
-def _getenv_int(key: str, default: int) -> int:
-    v = _getenv(key, None)
-    if v is None:
-        return default
-    try:
-        return int(v)
-    except ValueError:
-        return default
+def cmd_ingest(db: Neo4jClient, kind: str, input_path: str) -> None:
+    if kind == "targets":
+        n = ingest_targets(db, input_path)
+    elif kind == "ligands":
+        n = ingest_ligands(db, input_path)
+    elif kind == "assays":
+        n = ingest_assays(db, input_path)
+    elif kind == "toxicity":
+        n = ingest_toxicity(db, input_path)
+    elif kind == "structures":
+        n = ingest_structures(db, input_path)
+    elif kind == "contacts":
+        n = ingest_contacts(db, input_path)
+    else:
+        raise ValueError(f"Unknown ingest kind: {kind}")
+
+    print(f"✅ Ingested {n} rows into kind='{kind}' from {input_path}")
 
 
-def _getenv_float(key: str, default: float) -> float:
-    v = _getenv(key, None)
-    if v is None:
-        return default
-    try:
-        return float(v)
-    except ValueError:
-        return default
-
-
-def _getenv_bool(key: str, default: bool = False) -> bool:
-    v = _getenv(key, None)
-    if v is None:
-        return default
-    return v.lower() in {"1", "true", "yes", "y", "on"}
-
-
-@dataclass(frozen=True)
-class Neo4jConfig:
-    """Neo4j connection settings."""
-    uri: str = "bolt://localhost:7687"
-    user: str = "neo4j"
-    password: str = "password"
-    database: str = "neo4j"
-    # Optional: encrypted/ssl options (future)
-    encrypted: bool = False
-
-
-@dataclass(frozen=True)
-class LLMConfig:
+def cmd_stats(db: Neo4jClient) -> None:
+    q = """
+    MATCH (n)
+    UNWIND labels(n) AS lab
+    RETURN lab AS label, count(*) AS n
+    ORDER BY n DESC
     """
-    LLM settings.
-
-    provider:
-      - "hf_inference": Hugging Face Inference API (remote, laptop-friendly)
-      - "hf_local":     Local transformers pipeline (heavier)
-      - "none":         Disable LLM (retrieval-only)
-    """
-    provider: str = "hf_inference"
-
-    # For hf_inference (remote)
-    hf_model_id: Optional[str] = None
-    hf_token: Optional[str] = None
-    hf_endpoint: Optional[str] = None  # Optional custom endpoint
-
-    # For hf_local (local)
-    local_model_id: Optional[str] = None
-    device: str = "auto"               # auto|cpu|cuda|mps
-    load_in_8bit: bool = False
-    load_in_4bit: bool = False
-
-    # Generation controls (used by both where applicable)
-    max_new_tokens: int = 512
-    temperature: float = 0.2
-    top_p: float = 0.95
-
-    # Behavior
-    verbose: bool = False
+    rows = db.execute_cypher(q)
+    print("=== Node counts by label ===")
+    for r in rows:
+        print(f"{r['label']}: {r['n']}")
 
 
-@dataclass(frozen=True)
-class AppConfig:
-    neo4j: Neo4jConfig
-    llm: LLMConfig
+def cmd_retrieve(db: Neo4jClient, query: str, k: int, out_path: str | None, max_hops: int = 1) -> None:
+    retriever = SubgraphRetriever(db)
+    snapshot = retriever.retrieve(query=query, k=int(k), max_hops=int(max_hops))
 
-    @staticmethod
-    def from_env() -> "AppConfig":
-        """
-        Build config from environment variables (optionally loaded from .env via python-dotenv).
+    if out_path:
+        write_json(out_path, snapshot)
+        print(f"✅ Wrote snapshot to: {out_path}")
+    else:
+        print(snapshot)
 
-        Neo4j:
-          NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, NEO4J_DATABASE, NEO4J_ENCRYPTED
 
-        LLM:
-          LLM_PROVIDER = hf_inference | hf_local | none
+def cmd_answer(cfg: AppConfig, snapshot_path: str, prompt_path: str, out_path: str | None, question: str | None) -> None:
+    snapshot = read_json(snapshot_path)
+    llm = load_llm(cfg.llm)
 
-          HF Inference API:
-            HF_MODEL_ID, HF_TOKEN, HF_ENDPOINT (optional)
+    q = question or snapshot.get("query", "")
+    prompt = render_prompt(prompt_path, variables={"question": q}, snapshot=snapshot)
+    text = llm.generate(prompt)
 
-          Local HF:
-            LLM_MODEL (or HF_MODEL_ID), LLM_DEVICE, LLM_LOAD_IN_8BIT, LLM_LOAD_IN_4BIT
+    if out_path:
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(out_path).write_text(text, encoding="utf-8")
+        print(f"✅ Wrote answer to: {out_path}")
+    else:
+        print(text)
 
-          Generation:
-            LLM_MAX_NEW_TOKENS, LLM_TEMPERATURE, LLM_TOP_P
-        """
-        neo4j = Neo4jConfig(
-            uri=_getenv("NEO4J_URI", "bolt://localhost:7687") or "bolt://localhost:7687",
-            user=_getenv("NEO4J_USER", "neo4j") or "neo4j",
-            password=_getenv("NEO4J_PASSWORD", "password") or "password",
-            database=_getenv("NEO4J_DATABASE", "neo4j") or "neo4j",
-            encrypted=_getenv_bool("NEO4J_ENCRYPTED", False),
-        )
 
-        provider = (_getenv("LLM_PROVIDER", "hf_inference") or "hf_inference").lower()
+def build_parser() -> argparse.ArgumentParser:
+    ap = argparse.ArgumentParser(prog="graphrag.cli")
+    sub = ap.add_subparsers(dest="cmd", required=True)
 
-        # Remote HF inference settings
-        hf_model_id = _getenv("HF_MODEL_ID", None)
-        hf_token = _getenv("HF_TOKEN", None)
-        hf_endpoint = _getenv("HF_ENDPOINT", None)
+    # schema apply
+    sp = sub.add_parser("schema", help="Schema tools")
+    sp_sub = sp.add_subparsers(dest="schema_cmd", required=True)
+    sp_apply = sp_sub.add_parser("apply", help="Apply constraints/indexes CQL")
+    sp_apply.add_argument("--cql", required=True)
 
-        # Local model settings
-        local_model_id = _getenv("LLM_MODEL", None) or hf_model_id  # allow reusing HF_MODEL_ID
-        device = _getenv("LLM_DEVICE", "auto") or "auto"
-        load_in_8bit = _getenv_bool("LLM_LOAD_IN_8BIT", False)
-        load_in_4bit = _getenv_bool("LLM_LOAD_IN_4BIT", False)
+    # ingest
+    ip = sub.add_parser("ingest", help="Ingest CSV data")
+    ip.add_argument("kind", choices=["targets", "ligands", "assays", "toxicity", "structures", "contacts"])
+    ip.add_argument("--input", required=True)
 
-        # Generation controls
-        max_new_tokens = _getenv_int("LLM_MAX_NEW_TOKENS", 512)
-        temperature = _getenv_float("LLM_TEMPERATURE", 0.2)
-        top_p = _getenv_float("LLM_TOP_P", 0.95)
+    # stats
+    sub.add_parser("stats", help="Print node counts by label")
 
-        llm = LLMConfig(
-            provider=provider,
-            hf_model_id=hf_model_id,
-            hf_token=hf_token,
-            hf_endpoint=hf_endpoint,
-            local_model_id=local_model_id,
-            device=device,
-            load_in_8bit=load_in_8bit,
-            load_in_4bit=load_in_4bit,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            verbose=_getenv_bool("LLM_VERBOSE", False),
-        )
+    # retrieve
+    rp = sub.add_parser("retrieve", help="Retrieve a subgraph snapshot")
+    rp.add_argument("--query", required=True)
+    rp.add_argument("--k", type=int, default=50)
+    rp.add_argument("--max-hops", type=int, default=1)
+    rp.add_argument("--out", required=False)
 
-        return AppConfig(neo4j=neo4j, llm=llm)
+    # answer
+    ap2 = sub.add_parser("answer", help="Run LLM over a snapshot + prompt")
+    ap2.add_argument("--snapshot", required=True)
+    ap2.add_argument("--prompt", required=True)
+    ap2.add_argument("--out", required=False)
+    ap2.add_argument("--question", required=False)
 
-    def validate(self) -> None:
-        """
-        Optional sanity checks. Call from CLI if you want friendlier errors.
-        """
-        if not self.neo4j.uri:
-            raise ValueError("NEO4J_URI is required")
-        if self.llm.provider not in {"hf_inference", "hf_local", "none"}:
-            raise ValueError(f"Unsupported LLM_PROVIDER: {self.llm.provider}")
+    return ap
 
-        if self.llm.provider == "hf_inference":
-            if not self.llm.hf_model_id:
-                raise ValueError("HF_MODEL_ID is required for LLM_PROVIDER=hf_inference")
-            if not self.llm.hf_token:
-                raise ValueError("HF_TOKEN is required for LLM_PROVIDER=hf_inference (set in .env)")
 
-        if self.llm.provider == "hf_local":
-            if not self.llm.local_model_id:
-                raise ValueError("LLM_MODEL (or HF_MODEL_ID) is required for LLM_PROVIDER=hf_local")
+def main() -> None:
+    cfg = AppConfig.from_env()
+    db = Neo4jClient(cfg.neo4j)
 
+    ap = build_parser()
+    args = ap.parse_args()
+
+    if args.cmd == "schema" and args.schema_cmd == "apply":
+        cmd_schema_apply(db, args.cql)
+        return
+
+    if args.cmd == "ingest":
+        cmd_ingest(db, args.kind, args.input)
+        return
+
+    if args.cmd == "stats":
+        cmd_stats(db)
+        return
+
+    if args.cmd == "retrieve":
+        cmd_retrieve(db, args.query, args.k, args.out, max_hops=args.max_hops)
+        return
+
+    if args.cmd == "answer":
+        cmd_answer(cfg, args.snapshot, args.prompt, args.out, args.question)
+        return
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,366 @@
+{
+  "query": "P12345 CHEMBL0001 IC50",
+  "k": 50,
+  "max_hops": 1,
+  "nodes": [
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:1",
+      "labels": [
+        "Protein"
+      ],
+      "props": {
+        "sequence": "MKVLSEQLKAAE...FAKESEQ...",
+        "organism": "Homo sapiens",
+        "gene": "EXK1",
+        "name": "Example Kinase",
+        "length": 450,
+        "uniprot_id": "P12345",
+        "family": "Protein kinase"
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:5",
+      "labels": [
+        "Ligand"
+      ],
+      "props": {
+        "ligand_id": "CHEMBL0001",
+        "smiles": "CC1=CC(=O)N(C)C=C1",
+        "inchi_key": "FAKEINCHIKEY0001",
+        "name": "ExampleInhibitor",
+        "mw": 320.3,
+        "scaffold_id": "scaffold_001",
+        "source": "ChEMBL",
+        "tpsa": 68.0,
+        "logp": 2.1
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:8",
+      "labels": [
+        "AssayResult"
+      ],
+      "props": {
+        "ligand_id": "CHEMBL0001",
+        "year": 2022,
+        "metric": "IC50",
+        "assay_id": "ASSAY001",
+        "source": "ChEMBL",
+        "units": "nM",
+        "uniprot_id": "P12345",
+        "value": 35.0
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:9",
+      "labels": [
+        "AssayResult"
+      ],
+      "props": {
+        "ligand_id": "CHEMBL0002",
+        "year": 2022,
+        "metric": "IC50",
+        "assay_id": "ASSAY002",
+        "source": "ChEMBL",
+        "units": "nM",
+        "uniprot_id": "P12345",
+        "value": 120.0
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:11",
+      "labels": [
+        "Residue"
+      ],
+      "props": {
+        "aa": "LEU",
+        "residue_uid": "P12345:45",
+        "pos": 45,
+        "uniprot_id": "P12345"
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:12",
+      "labels": [
+        "Residue"
+      ],
+      "props": {
+        "aa": "VAL",
+        "residue_uid": "P12345:46",
+        "pos": 46,
+        "uniprot_id": "P12345"
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:13",
+      "labels": [
+        "Residue"
+      ],
+      "props": {
+        "aa": "PHE",
+        "residue_uid": "P12345:178",
+        "pos": 178,
+        "uniprot_id": "P12345"
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:14",
+      "labels": [
+        "Residue"
+      ],
+      "props": {
+        "aa": "ASP",
+        "residue_uid": "P12345:120",
+        "pos": 120,
+        "uniprot_id": "P12345"
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:15",
+      "labels": [
+        "Residue"
+      ],
+      "props": {
+        "aa": "GLU",
+        "residue_uid": "P12345:220",
+        "pos": 220,
+        "uniprot_id": "P12345"
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:15",
+      "labels": [
+        "Residue"
+      ],
+      "props": {
+        "aa": "GLU",
+        "residue_uid": "P12345:220",
+        "pos": 220,
+        "uniprot_id": "P12345"
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:14",
+      "labels": [
+        "Residue"
+      ],
+      "props": {
+        "aa": "ASP",
+        "residue_uid": "P12345:120",
+        "pos": 120,
+        "uniprot_id": "P12345"
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:13",
+      "labels": [
+        "Residue"
+      ],
+      "props": {
+        "aa": "PHE",
+        "residue_uid": "P12345:178",
+        "pos": 178,
+        "uniprot_id": "P12345"
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:12",
+      "labels": [
+        "Residue"
+      ],
+      "props": {
+        "aa": "VAL",
+        "residue_uid": "P12345:46",
+        "pos": 46,
+        "uniprot_id": "P12345"
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:11",
+      "labels": [
+        "Residue"
+      ],
+      "props": {
+        "aa": "LEU",
+        "residue_uid": "P12345:45",
+        "pos": 45,
+        "uniprot_id": "P12345"
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:6",
+      "labels": [
+        "Ligand"
+      ],
+      "props": {
+        "ligand_id": "CHEMBL0002",
+        "smiles": "CC1=CC(=O)N(C)CC=C1",
+        "inchi_key": "FAKEINCHIKEY0002",
+        "name": "ExampleAnalog",
+        "mw": 318.3,
+        "scaffold_id": "scaffold_001",
+        "source": "ChEMBL",
+        "tpsa": 65.0,
+        "logp": 2.3
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:5",
+      "labels": [
+        "Ligand"
+      ],
+      "props": {
+        "ligand_id": "CHEMBL0001",
+        "smiles": "CC1=CC(=O)N(C)C=C1",
+        "inchi_key": "FAKEINCHIKEY0001",
+        "name": "ExampleInhibitor",
+        "mw": 320.3,
+        "scaffold_id": "scaffold_001",
+        "source": "ChEMBL",
+        "tpsa": 68.0,
+        "logp": 2.1
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:1",
+      "labels": [
+        "Protein"
+      ],
+      "props": {
+        "sequence": "MKVLSEQLKAAE...FAKESEQ...",
+        "organism": "Homo sapiens",
+        "gene": "EXK1",
+        "name": "Example Kinase",
+        "length": 450,
+        "uniprot_id": "P12345",
+        "family": "Protein kinase"
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:8",
+      "labels": [
+        "AssayResult"
+      ],
+      "props": {
+        "ligand_id": "CHEMBL0001",
+        "year": 2022,
+        "metric": "IC50",
+        "assay_id": "ASSAY001",
+        "source": "ChEMBL",
+        "units": "nM",
+        "uniprot_id": "P12345",
+        "value": 35.0
+      }
+    }
+  ],
+  "edges": [
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:15",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:1",
+      "type": "HAS_RESIDUE",
+      "props": {}
+    },
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:14",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:1",
+      "type": "HAS_RESIDUE",
+      "props": {}
+    },
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:13",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:1",
+      "type": "HAS_RESIDUE",
+      "props": {}
+    },
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:12",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:1",
+      "type": "HAS_RESIDUE",
+      "props": {}
+    },
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:11",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:1",
+      "type": "HAS_RESIDUE",
+      "props": {}
+    },
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:1",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:6",
+      "type": "BINDS",
+      "props": {
+        "year": 2022,
+        "metric": "IC50",
+        "units": "nM",
+        "source": "ChEMBL",
+        "value": 120.0
+      }
+    },
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:1",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:6",
+      "type": "TARGETS",
+      "props": {}
+    },
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:1",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:5",
+      "type": "BINDS",
+      "props": {
+        "year": 2022,
+        "metric": "IC50",
+        "units": "nM",
+        "source": "ChEMBL",
+        "value": 35.0
+      }
+    },
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:1",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:5",
+      "type": "TARGETS",
+      "props": {}
+    },
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:8",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:5",
+      "type": "HAS_ASSAY",
+      "props": {}
+    },
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:9",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:6",
+      "type": "HAS_ASSAY",
+      "props": {}
+    },
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:14",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:11",
+      "type": "CONTACTS",
+      "props": {
+        "chain": "A",
+        "w": 1.0,
+        "dist": 3.8
+      }
+    },
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:14",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:12",
+      "type": "CONTACTS",
+      "props": {
+        "chain": "A",
+        "w": 1.0,
+        "dist": 4.2
+      }
+    },
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:15",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:13",
+      "type": "CONTACTS",
+      "props": {
+        "chain": "A",
+        "w": 1.0,
+        "dist": 4.6
+      }
+    }
+  ]
+}

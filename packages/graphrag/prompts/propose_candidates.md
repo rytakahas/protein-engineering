@@ -1,60 +1,31 @@
-# propose_candidates.md
 
-## Purpose
-Rank ligands / antibodies / peptides based on evidence + similarity
-(no geometry, no hallucinated docking).
+# Task: Rank candidates from a retrieved subgraph
 
-You are an expert in drug discovery and immunotherapy.
+You are given:
+- A user question: {{question}}
+- A retrieved subgraph in JSON: {{snapshot_json}}
 
-You are given a **retrieved knowledge subgraph** related to a target protein
-and disease context.
+## Instructions
+1) Use ONLY information in the subgraph.
+2) If the subgraph is empty, say so and ask for ingestion/retrieval.
+3) Produce a ranked list of candidates (ligands / antibodies / peptides) relevant to the target.
 
-Your task is to propose a **ranked list of candidate binders**.
+## Output format (STRICT JSON only)
+Return JSON with this schema:
 
-## What you MAY use
-- Experimental assay evidence
-- Structural similarity (shared pocket / epitope residues)
-- Target family similarity
-- Known clinical or preclinical usage
-- Toxicity or developability flags
-
-## What you MUST NOT do
-- Do NOT invent binding poses
-- Do NOT claim binding energies unless present
-- Do NOT speculate mechanisms beyond evidence
-
-## Ranking criteria (in order)
-1. Strength of experimental evidence
-2. Relevance to target and disease
-3. Structural/interface similarity
-4. Safety and toxicity profile
-5. Practicality (known molecules > speculative)
-
-## Output format (JSON)
-```json
 {
   "candidates": [
     {
       "rank": 1,
-      "type": "ligand | antibody | peptide",
-      "id": "identifier",
-      "name": "human-readable name",
-      "evidence": [
-        "Assay IC50 = ...",
-        "Structure PDB/SAbDab/Predicted"
-      ],
-      "risks": [],
-      "notes": "Why this candidate is prioritized"
+      "type": "ligand|antibody|peptide",
+      "id": "string",
+      "name": "string",
+      "why": ["bullet evidence statements grounded in subgraph edges/nodes"],
+      "risks": ["toxicity / uncertainty / missing evidence"]
     }
   ],
-  "open_questions": [
-    "What is unknown or should be validated next"
-  ]
+  "missing_info": ["what evidence is missing to be confident"],
+  "next_queries": ["2-4 follow-up retrieval queries to run in GraphRAG"]
 }
-```
 
-## Subgraph (JSON)
-
-{{SUBGRAPH_JSON}}
-
-## Ranked candidates
+Do not include markdown. Do not include extra keys.

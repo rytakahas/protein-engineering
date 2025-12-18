@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import csv
@@ -8,45 +9,54 @@ from ..db import Neo4jClient
 
 def ingest_assays(db: Neo4jClient, csv_path: str) -> int:
     """
-    Ingest AssayResult nodes + link to Ligand/Protein when IDs provided.
+    Your sample assays.csv columns:
+      assay_id, ligand_id, uniprot_id, metric, value, units, source, year
 
-    Expected columns:
-      - assay_id
-    Optional:
-      - ligand_id, uniprot_id, metric, value, units, source, doi, pmid
+    This creates:
+      (Ligand)-[:HAS_ASSAY]->(AssayResult)
+      (Ligand)-[:TARGETS]->(Protein)
+      (Ligand)-[:BINDS {metric, units, value}]->(Protein)
     """
     with open(csv_path, "r", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
 
-    norm: list[Dict[str, Any]] = []
+    cypher = """
+    UNWIND $rows AS row
+
+    MATCH (p:Protein {uniprot_id: row.uniprot_id})
+    MATCH (l:Ligand {ligand_id: row.ligand_id})
+
+    MERGE (a:AssayResult {assay_id: row.assay_id})
+    SET a += row
+
+    MERGE (l)-[:HAS_ASSAY]->(a)
+    MERGE (l)-[:TARGETS]->(p)
+
+    MERGE (l)-[b:BINDS]->(p)
+    SET b.metric = row.metric,
+        b.units = row.units,
+        b.value = row.value,
+        b.source = row.source,
+        b.year = row.year
+    """
+
+    norm_rows: list[Dict[str, Any]] = []
     for r in rows:
         rr = dict(r)
+        if not rr.get("assay_id"):
+            rr["assay_id"] = f"assay:{rr.get('uniprot_id','NA')}:{rr.get('ligand_id','NA')}:{rr.get('metric','NA')}"
         if "value" in rr and rr["value"] not in (None, "", "null"):
             try:
                 rr["value"] = float(rr["value"])
             except Exception:
                 pass
-        norm.append(rr)
+        if "year" in rr and rr["year"] not in (None, "", "null"):
+            try:
+                rr["year"] = int(float(rr["year"]))
+            except Exception:
+                pass
+        norm_rows.append(rr)
 
-    cypher = """
-    UNWIND $rows AS row
-    MERGE (a:AssayResult {assay_id: row.assay_id})
-    SET a += row
-
-    WITH row, a
-    OPTIONAL MATCH (l:Ligand {ligand_id: row.ligand_id})
-    FOREACH (_ IN CASE WHEN l IS NULL THEN [] ELSE [1] END |
-      MERGE (l)-[r:HAS_ASSAY]->(a)
-      SET r.metric = row.metric, r.value = row.value, r.units = row.units, r.source = row.source
-    )
-
-    WITH row, a
-    OPTIONAL MATCH (p:Protein {uniprot_id: row.uniprot_id})
-    FOREACH (_ IN CASE WHEN p IS NULL THEN [] ELSE [1] END |
-      MERGE (a)-[:MEASURES]->(p)
-    )
-    """
-    if norm:
-        db.run(cypher, params={"rows": norm})
-    return len(norm)
-
+    if norm_rows:
+        db.run(cypher, params={"rows": norm_rows})
+    return len(norm_rows)

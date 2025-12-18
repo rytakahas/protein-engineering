@@ -1,0 +1,47 @@
+{
+  "query": "CD19",
+  "k": 50,
+  "max_hops": 1,
+  "nodes": [
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:4",
+      "labels": [
+        "Protein"
+      ],
+      "props": {
+        "sequence": "",
+        "organism": "Homo sapiens",
+        "gene": "CD19",
+        "name": "CD19",
+        "length": 556,
+        "uniprot_id": "P15391",
+        "family": "B-cell antigen"
+      }
+    },
+    {
+      "id": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:16",
+      "labels": [
+        "Structure"
+      ],
+      "props": {
+        "path": "data/graphrag/structures/6AL4.pdb",
+        "ligand_id": "",
+        "method": "xray",
+        "confidence": 1.0,
+        "created_at": "2025-01-01",
+        "pdb_path": "data/graphrag/structures/6AL4.pdb",
+        "structure_id": "pdb_6AL4",
+        "model_id": "pdb_6AL4",
+        "uniprot_id": "P15391"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "dst": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:16",
+      "src": "4:cba62ca3-77d6-4b98-b342-1b8f286112d2:4",
+      "type": "HAS_STRUCTURE",
+      "props": {}
+    }
+  ]
+}

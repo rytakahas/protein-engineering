@@ -1,61 +1,14 @@
+
 edges:
-  ASSOCIATED_WITH:
-    from: Protein
-    to: Disease
-    props: [evidence_score, source]
-
-  TARGETS:
-    from: [Ligand, Antibody, Peptide]
-    to: Protein
-    props: [source]
-
-  HAS_STRUCTURE:
-    from: [Protein, Ligand, Antibody, Peptide]
-    to: Structure
-    props: [method, source]
-
-  HAS_MODEL:
-    from: [Protein, Ligand, Antibody, Peptide]
-    to: ComplexModel
-    props: [confidence, source]
-
-  HAS_ASSAY:
-    from: [Ligand, Antibody, Peptide]
-    to: AssayResult
-    props: [metric, value, units, source, year]
-
-  HAS_TOXICITY:
-    from: Ligand
-    to: ToxicityEvent
-    props: [severity, source]
-
-  MENTIONED_IN:
-    from: [Protein, Disease, Ligand, Antibody, Peptide, Structure, ComplexModel, AssayResult, ToxicityEvent]
-    to: Paper
-    props: [snippet, source]
-
-  HAS_RESIDUE:
-    from: Protein
-    to: Residue
-    props: []
-
-  HAS_POCKET:
-    from: [Structure, ComplexModel]
-    to: Pocket
-    props: [method, source]
-
-  HAS_EPITOPE:
-    from: [Structure, ComplexModel]
-    to: Epitope
-    props: [method, source]
-
-  COMPOSED_OF:
-    from: [Pocket, Epitope]
-    to: Residue
-    props: [role]
-
-  BINDS:
-    from: [Ligand, Peptide]
-    to: [Protein, Pocket]
-    props: [metric, value, units, source]
-
+  - ASSOCIATED_WITH: [Protein, Disease]
+  - TARGETS: [Ligand, Protein]
+  - TARGETS_ANTIBODY: [Antibody, Protein]
+  - TARGETS_PEPTIDE: [Peptide, Protein]
+  - HAS_STRUCTURE: [Protein, Structure]
+  - HAS_MODEL: [Protein, ComplexModel]
+  - BINDS: [Ligand, Protein]
+  - HAS_ASSAY: [Ligand, AssayResult]
+  - HAS_TOXICITY: [Ligand, ToxicityEvent]
+  - MENTIONED_IN: [any, Paper]
+  - HAS_RESIDUE: [Protein, Residue]
+  - CONTACTS: [Residue, Residue]
