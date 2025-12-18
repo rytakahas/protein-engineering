@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import csv
@@ -9,8 +8,12 @@ from ..db import Neo4jClient
 
 def ingest_contacts(db: Neo4jClient, csv_path: str) -> int:
     """
-    Expected columns:
-      uniprot_id, chain, i, aa_i, j, aa_j, w, dist
+    contacts.csv supported columns (superset):
+      uniprot_id,chain,i,aa_i,j,aa_j,w,dist,model_id,contact_type
+
+    Stores residues + CONTACTS relationships.
+    Relationship properties:
+      dist, w, chain, model_id, contact_type
     """
     with open(csv_path, "r", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
@@ -36,7 +39,9 @@ def ingest_contacts(db: Neo4jClient, csv_path: str) -> int:
     MERGE (ri)-[c:CONTACTS]->(rj)
     SET c.dist = row.dist,
         c.w = row.w,
-        c.chain = row.chain
+        c.chain = row.chain,
+        c.model_id = coalesce(row.model_id, ''),
+        c.contact_type = coalesce(row.contact_type, '')
     """
 
     norm_rows: list[Dict[str, Any]] = []
@@ -52,6 +57,9 @@ def ingest_contacts(db: Neo4jClient, csv_path: str) -> int:
         for k in ("dist", "w"):
             if rr.get(k) not in (None, "", "null"):
                 rr[k] = float(rr[k])
+
+        rr["model_id"] = rr.get("model_id") or ""
+        rr["contact_type"] = rr.get("contact_type") or ""
 
         norm_rows.append(rr)
 
