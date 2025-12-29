@@ -1,4 +1,4 @@
-# Protein Engineering Monorepo — ResContact → GraphRAG → ResIntNet → SeqML
+## Protein Engineering Monorepo — ResContact → GraphRAG → ResIntNet → SeqML
 
 End-to-end, modular pipeline for **protein & enzyme engineering**:
 
@@ -250,44 +250,126 @@ without changing downstream stages.
 
 ---
 
-## Stage B — GraphRAG (targets, candidates, evidence)
+## Stage B — GraphRAG (Knowledge Graph: targets → candidates → evidence)
 
 ### Purpose
+Stage B is the **decision + memory layer**. It connects:
+- **structural signals** (contacts, pockets, residue neighborhoods)
+with
+- **biological/chemical/experimental knowledge** (targets, families, ligands, assays, toxicity, papers),
 
-Provide a decision and memory layer that connects structural signals with biological, chemical, and experimental knowledge.
+so we can **propose candidates**, **justify them with evidence**, and **keep project memory across iterations**.
 
-### What GraphRAG does
+> Key idea: the KG is built **offline** (ingest + normalize + type with an ontology/schema),
+> and GraphRAG runs **online** on **small, retrieved subgraphs** (not the entire graph).
 
-- retrieve related targets, families, motifs, resistance sites
-- propose ligands / peptides / binder scaffolds
-- generate constraints for docking or complex prediction
-- explain why a residue or ligand is prioritized
-- track project history across iterations
+---
 
-### What GraphRAG does NOT do
+### What GraphRAG does (and does not do)
+**Does**
+- Retrieve related **targets / families / motifs / resistance sites**
+- Propose **ligands / peptides / binder scaffolds**
+- Generate **constraints** for docking / complex prediction (e.g., pocket residues, interaction hints)
+- Produce **evidence-backed explanations** (“why this residue / why this ligand”)
+- Track **history** (what we tried, what worked, what failed)
 
-- compute binding geometry
-- estimate binding free energies accurately
-- replace folding or docking engines
+**Does NOT**
+- Compute binding geometry
+- Replace folding/docking engines
+- Provide accurate binding free energies (that belongs to physics + docking + experiments)
 
-### Minimal graph schema
+---
 
-**Nodes:**
+### KG modeling here: same layers as relational, different artifacts
+You still do **conceptual → logical → physical** modeling, just “graph-shaped”:
 
-- Protein, Residue, Pocket
-- Ligand, Peptide
-- ComplexModel
-- AssayResult
-- ToxicityEvent
-- Paper
+**Conceptual (business/science view)**
+- Entities + relationships you care about (Protein–Residue–Pocket–Ligand–Assay–Paper…)
+- Query patterns (the questions you need to answer)
 
-**Edges:**
+**Logical (graph schema / ontology)**
+- Node labels, relationship types, property conventions, cardinalities
+- Normalization rules (canonical IDs, synonyms, provenance)
+- Which relations are “safe to traverse” for retrieval (important for performance + relevance)
 
-- HAS_RESIDUE, COMPOSED_OF
-- BINDS, PREDICTED_BINDING
-- ALLOSTERIC_PATH
-- HAS_TOXICITY
-- MENTIONED_IN, MEASURES
+**Physical (performance + scale)**
+- Uniqueness constraints on canonical IDs (e.g., UniProt/PDB/ChEMBL/DOI)
+- Indexes for fast seeding (name/synonym lookups, pocket IDs, assay IDs)
+- Optional: full-text index for paper metadata; vector index for embeddings
+- Optional: precomputed adjacency summaries for common 1–2 hop expansions
+
+---
+
+### Retrieval strategy: BFS for context, DFS for explanation (both bounded)
+A common misunderstanding is “GraphRAG = graph traversal.”  
+In practice: **GraphRAG = indexed retrieval + constrained traversal + ranking + trimming**.
+
+#### 1) Seed (index-first, not traversal-first)
+Start from **anchored nodes** identified from the user question:
+- exact IDs (UniProt, PDB, ChEMBL, DOI),
+- or synonym-resolved names (protein aliases, ligand names).
+
+This step must be O(log N) style lookups via indexes/constraints.
+
+#### 2) Bounded BFS (shallow neighborhood = fast context)
+Use **k-hop BFS** (typically k=2 or 3) to collect a **local evidence neighborhood**:
+- “What’s directly connected to this protein/pocket/residue?”
+- “Which assays/papers mention this ligand + target?”
+This maximizes **coverage** of relevant context quickly.
+
+#### 3) Guided DFS / path search (thin chains = good narratives)
+Then run a **guided DFS** (or constrained path search) *inside that retrieved subgraph* to find:
+- short, high-signal paths that explain *why* something is proposed:
+  - `Protein → Pocket → Ligand → AssayResult → Paper`
+  - `Residue → ALLOSTERIC_PATH → Pocket → Ligand`
+
+DFS is not “deep crawl everything.” It is:
+- bounded depth,
+- limited relationship types,
+- optionally weighted (edge confidence / recency / evidence strength).
+
+#### 4) Rank + trim (make it LLM-sized)
+Finally:
+- rank nodes/edges (evidence strength, confidence, recency, diversity),
+- keep **top-N** nodes/edges and **top-K** paths,
+- generate the prompt context from this **compact subgraph**.
+
+---
+
+### Minimal starter schema (property graph view)
+**Nodes**
+- `Protein`, `Residue`, `Pocket`
+- `Ligand`, `Peptide`
+- `ComplexModel`
+- `AssayResult`
+- `ToxicityEvent`
+- `Paper`
+
+**Edges**
+- `HAS_RESIDUE`, `COMPOSED_OF`
+- `BINDS`, `PREDICTED_BINDING`
+- `ALLOSTERIC_PATH`
+- `HAS_TOXICITY`
+- `MENTIONED_IN`, `MEASURES`
+
+**Provenance (recommended)**
+Attach `source`, `source_url`, `timestamp`, `confidence` to nodes/edges
+so every retrieved claim can be traced.
+
+---
+
+### Example query patterns this stage should answer
+- “Given **Protein X**, what **pockets** are plausible and which **ligands** are supported by assays/papers?”
+- “Why is **Residue r123** a good mutation target? Show evidence chain(s).”
+- “Find ligand candidates for **family Y** with low toxicity signals and relevant assays.”
+
+---
+
+### Output of Stage B (what gets passed downstream)
+- Candidate set: `(pocket/residue targets, ligand/peptide candidates)`
+- Evidence pack: compact subgraph + top explanatory paths + citations/provenance
+- Constraints for Stage C/D: residues/pockets to prioritize + rationale
+
 
 ---
 
